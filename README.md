@@ -3,6 +3,7 @@
 ## Objective
 - Gain experience with signed distance functions
 - Experiment with animation curves
+- Create a presentable portfolio piece
 
 ## Base Code
 

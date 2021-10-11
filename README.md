@@ -1,5 +1,7 @@
 # CIS 566 Homework 3: Advanced Raymarched Scenes
+Sharon Dong (PennKey: sharondo)
 
+https://sharond106.github.io/hw03-advanced-raymarching/
 ## Objective
 - Gain experience with signed distance functions
 - Experiment with animation curves

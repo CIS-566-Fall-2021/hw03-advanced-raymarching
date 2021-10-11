@@ -1,7 +1,21 @@
 # CIS 566 Homework 3: Advanced Raymarched Scenes
 Sharon Dong (PennKey: sharondo)
 
-https://sharond106.github.io/hw03-advanced-raymarching/
+Live demo: https://sharond106.github.io/hw03-advanced-raymarching/
+
+![gif](ramen.gif)
+
+Reference image:
+
+![reference](reference.jpg) 
+
+## Techniques
+**Raymarched scene** - https://github.com/sharond106/hw02-raymarching-sdfs
+ ### Materials 
+ **Table** - blinn phong 
+
+![lights](ramen&#32;(2).png)
+
 ## Objective
 - Gain experience with signed distance functions
 - Experiment with animation curves

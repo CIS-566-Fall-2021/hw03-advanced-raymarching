@@ -5,30 +5,45 @@ uniform vec3 u_Eye, u_Ref, u_Up;
 uniform vec2 u_Dimensions;
 uniform float u_Time;
 
+uniform vec3 u_CameraPos;
+
 in vec2 fs_Pos;
+in vec4 fs_Pos4;
 
 out vec4 out_Col;
 
 const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
-const float MAX_DIST = 100.0;
+const float MAX_DIST = 200.0;
 
 const int MAX_RAY_STEPS = 128;
-const float FOV = 45.0;
+const float FOV = 3.141569 * 0.30;
 const float EPSILON = 1e-5;
 
 
 #define BLUE_CUBE 1
 #define BLUE_PLANK 2
 #define BLUE_SABER 3
+#define INSIDE 4
 #define RED_CUBE 11
 #define RED_SABER 12
-#define WHITE_TRIANGLE 666
-#define TEST_SPHERE 0
+#define WHITE_TRIANGLE 233
+#define WHITE_GLOW 666
 
 #define TO_RADIAN 3.14159/180.0
 #define TIME 1.0 //u_Time
 
+const float DELTA = 0.085;
+const float K = 2.;
+
+// The larger the DISTORTION, the smaller the glow
+const float DISTORTION = 0.2;
+// The higher GLOW is, the smaller the glow of the subsurface scattering
+const float GLOW = 5.0;
+// The higher the BSSRDF_SCALE, the brighter the scattered light
+const float BSSRDF_SCALE = 3.0;
+// Boost the shadowed areas in the subsurface glow with this
+const float AMBIENT = 0.1;
 
 struct Ray 
 {
@@ -44,6 +59,48 @@ struct Intersection
     int material_id;
 };
 
+
+//noise from https://www.shadertoy.com/view/MtcyWr
+float n21 (vec3 uvw)
+{
+    return fract(sin(uvw.x*23.35661 + uvw.y*6560.65 + uvw.z*4624.165)*2459.452);
+}
+
+float smoothNoise (vec3 uvw)
+{
+    float fbl = n21(floor(uvw)) * sin(u_Time);
+    float fbr = n21(vec3(1.0,0.0,0.0)+floor(uvw));
+    float ful = n21(vec3(0.0,1.0,0.0)+floor(uvw));
+    float fur = n21(vec3(1.0,1.0,0.0)+floor(uvw));
+    
+    float bbl = n21(vec3(0.0,0.0,1.0)+floor(uvw));
+    float bbr = n21(vec3(1.0,0.0,1.0)+floor(uvw));
+    float bul = n21(vec3(0.0,1.0,1.0)+floor(uvw));
+    float bur = n21(vec3(1.0,1.0,1.0)+floor(uvw));
+    
+    uvw = fract(uvw);
+    vec3 blend = uvw;
+    blend = (blend*blend*(3.0 -2.0*blend)); // cheap smoothstep
+    
+    return mix(	mix(mix(fbl, fbr, blend.x), mix(ful, fur, blend.x), blend.y),
+        		mix(mix(bbl, bbr, blend.x), mix(bul, bur, blend.x), blend.y),
+               	blend.z);
+}
+
+float perlinNoise3D (vec3 uvw)
+{
+    float blended = smoothNoise(uvw*4.0);
+    blended += smoothNoise(uvw*8.0)*0.5;
+    blended += smoothNoise(uvw*16.0)*0.25;
+    blended += smoothNoise(uvw*32.0)*0.125;
+    blended += smoothNoise(uvw*64.0)*0.0625;
+    
+    blended /= 2.0;
+    //blended = fract(blended*2.0)*0.5+0.5;
+    blended *= pow(0.8-abs(uvw.y),2.0);
+    return blended;
+}
+
 float sdfSphere(vec3 query_position, vec3 position, float radius)
 {
     return length(query_position - position) - radius;
@@ -55,10 +112,21 @@ float sdBox( vec3 p, vec3 b )
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
+float sdSphere( vec3 p, float s )
+{
+  return length(p)-s;
+}
+
 float sdRoundBox( vec3 p, vec3 b, float r )
 {
   vec3 q = abs(p) - b;
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
+}
+
+float sdCappedCylinder( vec3 p, float h, float r )
+{
+  vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(h,r);
+  return min(max(d.x,d.y),0.0) + length(max(d,0.0));
 }
 
 float sdTriPrism( vec3 p, vec2 h )
@@ -177,59 +245,105 @@ float ease_in_out_quadratic(float t) {
         return 1.0 - ease_in_quadratic((1.0-t)*2.0);
 }
 
+float rand(vec2 n) { 
+	return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
+}
 
-#define LEFTP1 vec3(0.f,5.f,-25.f)
-#define LEFTP2 vec3(-4.f,5.f,0.f)
-#define RIGHTP1 vec3(4.f,5.f,0.f)
-#define RIGHTP2 vec3(4.f,5.f,-25.f)
+float noise(vec2 p){
+	vec2 ip = floor(p);
+	vec2 u = fract(p);
+	u = u*u*(3.0-2.0*u);
+	
+	float res = mix(
+		mix(rand(ip),rand(ip+vec2(1.0,0.0)),u.x),
+		mix(rand(ip+vec2(0.0,1.0)),rand(ip+vec2(1.0,1.0)),u.x),u.y);
+	return res*res;
+}
+
+#define NUM_OCTAVES 5
+
+float fbm(vec2 x) {
+	float v = 0.0;
+	float a = 0.5;
+	vec2 shift = vec2(100);
+	// Rotate to reduce axial bias
+    mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.50));
+	for (int i = 0; i < NUM_OCTAVES; ++i) {
+		v += a * noise(x);
+		x = rot * x * 2.0 + shift;
+		a *= 0.5;
+	}
+	return v;
+}
+
+#define ATTENUATION 0
+float subsurface(vec3 lightDir, vec3 normal, vec3 viewVec, float thinness) {
+    vec3 scatteredLightDir = lightDir + normal * DISTORTION;
+    float lightReachingEye = pow(clamp(dot(viewVec, -scatteredLightDir), 0.0, 1.0), GLOW) * BSSRDF_SCALE;
+    float attenuation = 1.0;
+    #if ATTENUATION
+    attenuation = max(0.0, dot(normal, lightDir) + dot(viewVec, -lightDir));
+    #endif
+	float totalLight = attenuation * (lightReachingEye + AMBIENT) * thinness;
+    return totalLight;
+}
+
+
+#define P1 vec3(0.f,8.f,-100.f)
+#define P2 vec3(-9.f,19.f,-21.f)
+#define P3 vec3(9.f,19.f,-21.f)
 #define TEST_SPHERE_SDF sdfSphere(queryPos, vec3(0.0, 0.0, 0.0), 0.5)
 #define TEST_SPHERE_SDF2 sdfSphere(queryPos, vec3(cos(time) * 2.0, 0.0, 0.0), abs(cos(time)))
-#define PLANK1 sdBox(queryPos + LEFTP1,vec3(8.f,1.f,20.f))
-#define PLANK2 sdBox(queryPos + LEFTP2,vec3(1.f,10.f,1.f))
-#define PLANK3 sdBox(queryPos + RIGHTP1,vec3(1.f,10.f,1.f))
-#define PLANK4 sdBox(queryPos + RIGHTP2,vec3(0.5f,0.2,20.f))
+#define PLANK1 sdBox(queryPos + P1,vec3(10.f,1.f,80.f))
+#define PLANK2 sdBox(queryPos + P2,vec3(1.f,10.f,1.f))
+#define PLANK3 sdBox(queryPos + P3,vec3(1.f,10.f,1.f))
 
-#define BC1 vec3(1.f,3.2f,-8.f * sin(time))
-#define BC2 vec3(4.f,3.f,-30.f * cos(time))
-#define RC1 vec3(-1.f,2.f,-25.f * sin(time))
-#define RC2 vec3(-4.f,3.f,-18.f + time)
+#define BC1 vec3(-8.f,0.f,-10.f * sin(time))
+#define BC2 vec3(2.f,-1.2f,-15.f)
+#define RC1 vec3(-2.f,-5.f,-7.f * sin(time))
+#define RC2 vec3(2.f,2.f,-15.f)
 
 // #define BT1 vec3(1.f,4.f,-0.6f)
-#define BT1 BC1 + vec3(0.f,-0.8f,1.4f)
+#define BT1 BC1 + vec3(0.8f,0.f,1.4f)
 #define BT2 BC2 + vec3(-0.8f,0.f,1.4f)
 #define RT1 RC1 + vec3(0.f,-0.8f,1.4f)
-#define RT2 RC2 + vec3(0.8f,0.f,1.4f)
+#define RT2 RC2 + vec3(-0.8f,0.f,1.4f)
 
-#define BS vec3(6.f,8.f,-1.f) + rotateY(vec3(1.f,1.f,1.f), 90.0*TO_RADIAN*ease_in_quadratic(cos(time))) 
-#define RS vec3(-6.f,6.f,-1.f) + rotateZ(vec3(1.f,1.f,1.f), 90.0*TO_RADIAN*sin(time)) 
+#define BS vec3(-0.f,3.f,-1.f) + rotateY(vec3(1.f,1.f,1.f), 90.0*TO_RADIAN*ease_in_quadratic(cos(time))) 
+#define RS vec3(-6.f,5.f,-1.f) + rotateZ(vec3(1.f,1.f,1.f), 90.0*TO_RADIAN*sin(time)) 
 
-#define BS1 vec3(10.f,5.f,0.f)
-#define RS1 vec3(-10.f,5.f,0.f)
+#define BS1 vec3(9.8f,6.5f,-20.f)
+#define RS1 vec3(-9.8f,6.5f,-20.f)
 
 #define BCUBE1 sdRoundBox(queryPos + BC1,vec3(1.f,1.f,1.f),0.5)
 #define BCUBE2 sdRoundBox(queryPos + BC2,vec3(1.f,1.f,1.f),0.5)
 #define RCUBE1 sdRoundBox(queryPos + RC1,vec3(1.f,1.f,1.f),0.5)
 #define RCUBE2 sdRoundBox(queryPos + RC2,vec3(1.f,1.f,1.f),0.5)
 #define TRI11 sdTriPrism(queryPos + BT1, vec2(1,0.2))
-#define TRI1 sdTriPrism(rotateZ(queryPos + BT1, 180.*TO_RADIAN), vec2(0.8,0.2))
+#define TRI1 sdTriPrism(rotateZ(queryPos + BT1, 270.*TO_RADIAN), vec2(0.8,0.2))
 #define TRI2 sdTriPrism(rotateZ(queryPos + BT2, 90.*TO_RADIAN), vec2(0.8,0.2))
 #define TRI3 sdTriPrism(rotateZ(queryPos + RT1, 180.*TO_RADIAN), vec2(0.8,0.2))
-#define TRI4 sdTriPrism(rotateZ(queryPos + RT2, 270.*TO_RADIAN), vec2(0.8,0.2))
+#define TRI4 sdTriPrism(rotateZ(queryPos + RT2, 90.*TO_RADIAN), vec2(0.8,0.2))
 #define BCUBE11 opSmoothUnion(BCUBE1, TRI1,0.5)
 #define BCUBE22 opSmoothUnion(BCUBE2, TRI2,0.5)
 #define RCUBE11 opSmoothUnion(RCUBE1, TRI3,0.5)
 #define RCUBE22 opSmoothUnion(RCUBE2, TRI4,0.5)
-// #define TRI1 udTriangle(queryPos + T1, vec3(0.0,1.0,1.0), vec3(0.0,2.0,3.0),vec3(0.0,3.0,5.0))
 
-#define BSABER_U sdCapsule(queryPos + BS, vec3(0.2f,0.2f,1.f),vec3(5.f,5.f,1.f),0.3)
-#define RSABER_U sdCapsule(queryPos + RS, vec3(1.f,1.f,1.f),vec3(-5.f,5.f,1.f),0.3)
-#define BSABER_B sdCapsule(queryPos + BS, vec3(0.f,0.f,0.1f),vec3(5.f,5.f,1.f),0.2)
-#define RSABER_B sdCapsule(queryPos + RS + vec3(0.f,0.f,0.1), vec3(0.5f,0.5f,0.5f),vec3(-5.f,5.f,1.f),0.2)
-#define BSABER opIntersection(BSABER_U,BSABER_B)
-#define RSABER opIntersection(RSABER_U,RSABER_B)
+#define DP rotateX(rotateZ(queryPos + vec3(0.f,0.f,-80.f), 90.*TO_RADIAN), 90.*TO_RADIAN)
+// #define DP queryPos + vec3(0.f,0.f,-80.f)
+#define DISK1 sdCappedCylinder(DP,30.f,0.4f)
+#define DISK2 sdSphere(DP,12.f)
+#define DISK opSubtraction(DISK2, DISK1)
 
-#define BSIDE1 sdCapsule(queryPos + BS1, vec3(0.2f,0.2f,60.f),vec3(0.f,0.f,0.f),0.4)
-#define RSIDE1 sdCapsule(queryPos + RS1, vec3(0.2f,0.2f,60.f),vec3(0.f,0.f,0.f),0.4)
+#define BSABER_U sdCapsule(queryPos + BS, vec3(0.2f,0.2f,1.f),vec3(5.f,10.f,1.f),0.2)
+#define RSABER_U sdCapsule(queryPos + RS, vec3(1.f,1.f,1.f),vec3(-10.f,5.f,2.f),0.2)
+#define BSABER_B sdCapsule(queryPos + BS, vec3(0.2f,0.2f,1.f),vec3(5.f,10.f,1.f),0.2)
+#define RSABER_B sdCapsule(queryPos + RS, vec3(1.f,1.f,1.f),vec3(-10.f,5.f,2.f),0.2)
+#define BSABER opUnion(BSABER_U,BSABER_B)
+#define RSABER opUnion(RSABER_U,RSABER_B)
+
+#define BSIDE1 sdCapsule(queryPos + BS1, vec3(0.2f,0.2f,60.f),vec3(0.f,0.f,0.f),0.2)
+#define BSIDE2 sdCapsule(queryPos + RS1, vec3(0.2f,0.2f,60.f),vec3(0.f,0.f,0.f),0.2)
 
 
 float sceneSDF(vec3 queryPos) 
@@ -241,8 +355,6 @@ float sceneSDF(vec3 queryPos)
     t2 = PLANK2;
     t = min(t,t2);
     t2 = PLANK3;
-    t = min(t,t2);
-    t2 = PLANK4;
     t = min(t,t2);
     t2 = BCUBE11;
     t = min(t,t2);
@@ -258,11 +370,12 @@ float sceneSDF(vec3 queryPos)
     t = min(t,t2);
     t2 = BSIDE1;
     t = min(t,t2);
-    t2 = RSIDE1;
+    t2 = BSIDE2;
     t = min(t,t2);
+    // t2 = DISK;
+    // t = min(t,t2);
     return t;
 }
-
 
 float sceneSDF(vec3 queryPos, out int id) 
 {
@@ -273,12 +386,13 @@ float sceneSDF(vec3 queryPos, out int id)
     id = BLUE_PLANK;
     // 1. Evaluate all SDFs as material groups
     float white_t = min(min(TRI1,TRI4), min(TRI2, TRI3));
-    float darkBlue_t = min(min(PLANK2, PLANK1), min(PLANK3,PLANK4));
+    float darkBlue_t = min(min(PLANK2, PLANK1), min(PLANK3,DISK));
     float bluecube_t = min(BCUBE1, BCUBE2);
     float redcube_t = min(RCUBE1, RCUBE2);
+    float side_t = min(BSIDE1, BSIDE2);
     if(white_t < t) {
         t = white_t;
-        id = WHITE_TRIANGLE;
+        id = WHITE_GLOW;
     }
     if(darkBlue_t < t) {
         t = darkBlue_t;
@@ -308,15 +422,14 @@ float sceneSDF(vec3 queryPos, out int id)
         t = t2;
         id = RED_SABER;
     } 
-    if((t2 = BSIDE1) < t){
+    if((t2 = side_t) < t){
         t = t2;
         id = BLUE_SABER;
-    } 
-    if((t2 = RSIDE1) < t){
+    }      
+    if((t2 = DISK2) < t){
         t = t2;
-        id = RED_SABER;
-    } 
-     
+        id = INSIDE;
+    }   
     return t;
 }
 
@@ -375,7 +488,7 @@ Intersection getRaymarchedIntersection(vec2 uv)
 {
     Intersection intersection;
     intersection.distance_t = -1.0;
-    int material_id;
+    int material_id = -1;
     Ray r = getRay(uv);
     float t = EPSILON; 
     for(int step; step < MAX_RAY_STEPS; ++step){
@@ -404,31 +517,27 @@ vec3 rgb(int r, int g, int b) {
   return vec3(float(r) / 255.f, float(g) / 255.f, float(b) / 255.f);
 }
 
-vec3 getSceneColor(vec2 uv)
+float depthOfField(Intersection isect) {
+        //compute depth of field blur attribute for each pixel
+    float focalLength = 20.;// * cos(iTime)* 3.14159;
+    float focalRange = 7.;//
+    float distFromCamera = abs(dot(normalize(u_Ref - u_Eye), isect.position - u_Eye));
+    float dofBlurAmount = min(1.0, abs(distFromCamera - focalLength)/focalRange);
+    return dofBlurAmount;
+}
+
+
+
+vec4 getSceneColor(vec2 uv)
 {
     Intersection i = getRaymarchedIntersection(uv);
+    int blinn = 0;
     vec3 diffuseColor = vec3(1.f);
-    if (i.material_id == BLUE_PLANK) {
-        diffuseColor = rgb(5,23,44);
-     } else if (i.material_id == BLUE_CUBE) {
-        diffuseColor = rgb(2,70,122);
-     } else if (i.material_id == RED_CUBE) {
-        diffuseColor = rgb(102,9,9);
-     } else if (i.material_id == WHITE_TRIANGLE) {
-        diffuseColor = rgb(255,255,255);
-     }  else if (i.material_id == BLUE_SABER) {
-        diffuseColor = rgb(163,219,250);
-     }  else if (i.material_id == RED_SABER) {
-        diffuseColor = rgb(236,138,147);
-     }
-     else if (i.material_id == TEST_SPHERE) {
-        diffuseColor = i.normal;
-     } else if (i.distance_t > 0.0f){
-         diffuseColor = vec3(1.f);
-     }
 
-    //lambert shading
+        //lambert shading
     vec3 lightPos = vec3(0.f, 10.f, -10.f);
+    vec3 lightPos2 = vec3(0.f, 10.f, -10.f);
+    vec3 lightPos3 = vec3(0.f, 10.f, -10.f);
     vec3 lightDir = lightPos - i.position;
 
     float diffuseTerm = dot(normalize(i.normal), normalize(lightDir));
@@ -436,38 +545,94 @@ vec3 getSceneColor(vec2 uv)
     float ambientTerm = 0.5;
     float lightIntensity = (diffuseTerm + ambientTerm);
 
+    float dist = 1.0/length(uv);
+    dist *= 0.1;
+    dist = pow(dist,0.9);
+    vec3 mist = dist * vec3(0.25, 0.5, 0.8);
+    mist = 1.0 - exp( -mist );
+    switch(i.material_id) {
+        case BLUE_PLANK: 
+        diffuseColor = rgb(5,23,44);
+        blinn = 1;
+        break;
+
+        case BLUE_CUBE:
+        diffuseColor = rgb(2,70,122);
+        break;
+
+        case RED_CUBE:
+        diffuseColor = rgb(102,9,9);
+        break;
+
+        case WHITE_TRIANGLE:
+        diffuseColor = rgb(255,255,255);
+        break;
+
+        case BLUE_SABER:
+        diffuseColor = rgb(163,219,250);
+        blinn = 1;
+        float n1 = perlinNoise3D(fs_Pos4.xyz);
+        // float n2 = perlinNoise3D(u_Eye * 5.0);
+        // vec3 layer = 0.4 * vec3(n1) + 0.6 * vec3(n2);
+        // vec3 layer2 = 0.5 * diffuseColor / vec3(n1) + 0.5 * diffuseColor / vec3(n2);
+        // diffuseColor = diffuseColor + diffuseColor * layer + 0.5 * diffuseColor * layer2 * layer2 / 100.0;
+        diffuseColor += n1;
+        // return diffuseColor * lightIntensity;
+        break;
+
+        case RED_SABER:
+        diffuseColor = rgb(236,138,147);
+        blinn = 1;
+        break;
+
+        case WHITE_GLOW:
+        float d = length(uv-vec2(0.6,0.5));
+        vec3 glow = vec3(0.98,0.97,0.95)*(1.0-0.1*smoothstep(0.2,0.5,1.f));
+        vec3 col2 = vec3(0.8);
+        col2 += 0.8*glow*exp(-4.0*d)*vec3(1.1,1.0,0.8);
+        col2 += 0.2*glow*exp(-2.0*d);
+        glow *= 0.85+0.15*smoothstep(0.25,0.7,1.0);
+        col2 = mix( col2, glow, 1.0-smoothstep(0.2,0.22,d) );
+        return vec4(col2,1);
+
+        case INSIDE:
+        mist += 0.5*perlinNoise3D(vec3(fs_Pos4.xyz));
+        return vec4(mist,1);
+
+        default:
+        return vec4(0,0,0,1);
+     }
+
+    //blinn shading
+    if(blinn == 1){
+        vec3 H = (lightDir + u_CameraPos) / 2.f;
+        H = normalize(H);
+        float exp = 80.f;
+        // Material base color (before shading)
+        diffuseColor += max(pow(dot(normalize(H.xyz), normalize(i.normal)), exp), 0.0);
+    }
     float K = 100.f;
     float sh = shadow(lightDir, i.position, 0.1, K, lightPos);
     vec3 col = diffuseColor.rgb * lightIntensity * sh;
     //col = sh > 0.5 ? vec3(1.) : vec3(1., 0., 1.);
 
     // col = i.normal * 0.5 + vec3(0.5);
-     
-     return col;
+    float dofBlurAmount = depthOfField(i);
+    return vec4(col, dofBlurAmount);
 }
+
 
 void main() {
     vec2 uv = fs_Pos;
-    vec3 col = getSceneColor(uv);
-//   out_Col = vec4(0.5 * (fs_Pos + vec2(1.0)), 0.5 * (sin(u_Time * 3.14159 * 0.01) + 1.0), 1.0);
-    out_Col = vec4(col, 1.0);
-   
-    //test ray casting function
-    // Ray r = getRay(uv);
-    // vec3 color = 0.5 * (r.direction + vec3(1.0, 1.0, 1.0));
-    // out_Col = vec4(color, 1.0);
-
-
-    //lambert shading
-
-    // vec3 lightDir = vec3(0.f);
-
-    // float diffuseTerm = dot(normalize(nor), normalize(lightDir));
-    // // Avoid negative lighting values
-    // diffuseTerm = clamp(diffuseTerm, 0.f, 1.f);
-    // float ambientTerm = 0.25*float(u_Light);
-    // float lightIntensity = (diffuseTerm + ambientTerm);
-
-    // out_Col = vec4(diffuseColor.rgb * lightIntensity, diffuseColor.a);
-
+    vec2 p = uv;
+    // camera
+    float time = mod( u_Time, 60.0 );
+    // p += vec2(1.0,3.0)*0.001*2.0*cos( u_Time*5.0 + vec2(0.0,1.5) );    
+    // p += vec2(1.0,3.0)*0.001*1.0*cos( time*9.0 + vec2(1.0,4.5) );    
+    // float an = 0.3*sin( 0.1*time );
+    // float co = cos(an);
+    // float si = sin(an);
+    // p = mat2( co, -si, si, co )*p*0.85;
+    // uv = vec2(1.0,3.0)*0.001*1.0;
+    out_Col = getSceneColor(uv);
 }

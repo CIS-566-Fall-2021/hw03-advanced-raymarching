@@ -1,6 +1,6 @@
-import {vec2, vec3, vec4, mat4} from 'gl-matrix';
+import { vec2, vec3, vec4, mat4 } from 'gl-matrix';
 import Drawable from './Drawable';
-import {gl} from '../../globals';
+import { gl } from '../../globals';
 
 var activeProgram: WebGLProgram = null;
 
@@ -16,7 +16,7 @@ export class Shader {
       throw gl.getShaderInfoLog(this.shader);
     }
   }
-};
+}
 
 class ShaderProgram {
   prog: WebGLProgram;
@@ -29,6 +29,7 @@ class ShaderProgram {
   unifUp: WebGLUniformLocation;
   unifDimensions: WebGLUniformLocation;
   unifTime: WebGLUniformLocation;
+  unifCameraPos: WebGLUniformLocation;
 
   constructor(shaders: Array<Shader>) {
     this.prog = gl.createProgram();
@@ -41,12 +42,13 @@ class ShaderProgram {
       throw gl.getProgramInfoLog(this.prog);
     }
 
-    this.attrPos = gl.getAttribLocation(this.prog, "vs_Pos");
-    this.unifEye   = gl.getUniformLocation(this.prog, "u_Eye");
-    this.unifRef   = gl.getUniformLocation(this.prog, "u_Ref");
-    this.unifUp   = gl.getUniformLocation(this.prog, "u_Up");
-    this.unifDimensions   = gl.getUniformLocation(this.prog, "u_Dimensions");
-    this.unifTime   = gl.getUniformLocation(this.prog, "u_Time");
+    this.attrPos = gl.getAttribLocation(this.prog, 'vs_Pos');
+    this.unifEye = gl.getUniformLocation(this.prog, 'u_Eye');
+    this.unifRef = gl.getUniformLocation(this.prog, 'u_Ref');
+    this.unifUp = gl.getUniformLocation(this.prog, 'u_Up');
+    this.unifDimensions = gl.getUniformLocation(this.prog, 'u_Dimensions');
+    this.unifTime = gl.getUniformLocation(this.prog, 'u_Time');
+    this.unifCameraPos = gl.getUniformLocation(this.prog, 'u_CameraPos');
   }
 
   use() {
@@ -58,28 +60,35 @@ class ShaderProgram {
 
   setEyeRefUp(eye: vec3, ref: vec3, up: vec3) {
     this.use();
-    if(this.unifEye !== -1) {
+    if (this.unifEye !== -1) {
       gl.uniform3f(this.unifEye, eye[0], eye[1], eye[2]);
     }
-    if(this.unifRef !== -1) {
+    if (this.unifRef !== -1) {
       gl.uniform3f(this.unifRef, ref[0], ref[1], ref[2]);
     }
-    if(this.unifUp !== -1) {
+    if (this.unifUp !== -1) {
       gl.uniform3f(this.unifUp, up[0], up[1], up[2]);
     }
   }
 
   setDimensions(width: number, height: number) {
     this.use();
-    if(this.unifDimensions !== -1) {
+    if (this.unifDimensions !== -1) {
       gl.uniform2f(this.unifDimensions, width, height);
     }
   }
 
   setTime(t: number) {
     this.use();
-    if(this.unifTime !== -1) {
+    if (this.unifTime !== -1) {
       gl.uniform1f(this.unifTime, t);
+    }
+  }
+
+  setCameraPos(campos: vec3) {
+    this.use();
+    if (this.unifCameraPos !== -1) {
+      gl.uniform3fv(this.unifCameraPos, campos);
     }
   }
 
@@ -96,6 +105,6 @@ class ShaderProgram {
 
     if (this.attrPos != -1) gl.disableVertexAttribArray(this.attrPos);
   }
-};
+}
 
 export default ShaderProgram;

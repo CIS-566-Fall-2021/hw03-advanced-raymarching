@@ -1,4 +1,4 @@
-import { vec2, vec3 } from 'gl-matrix';
+import { vec2, vec3, mat3 } from 'gl-matrix';
 // import * as Stats from 'stats-js';
 import Square from './geometry/Square';
 import OpenGLRenderer from './rendering/gl/OpenGLRenderer';
@@ -19,7 +19,7 @@ let time: number = 0;
 function loadScene() {
   square = new Square(vec3.fromValues(0, 0, 0));
   square.create();
-  // time = 0;
+  time = 0;
 }
 
 function main() {
@@ -72,7 +72,9 @@ function main() {
   // Initial call to load scene
   loadScene();
 
-  const camera = new Camera(vec3.fromValues(0, 0, -10), vec3.fromValues(0, 0, 0));
+  const campos = vec3.fromValues(-5, 2, -12);
+  // const campos = vec3.fromValues(0, 0, -10);
+  const camera = new Camera(campos, vec3.fromValues(0, 0, 0));
 
   const renderer = new OpenGLRenderer(canvas);
   renderer.setClearColor(164.0 / 255.0, 233.0 / 255.0, 1.0, 1);
@@ -97,7 +99,6 @@ function main() {
     renderer.render(camera, flat, [square], time);
     time++;
     // stats.end();
-
     // Tell the browser to call `tick` again whenever it renders a new frame
     requestAnimationFrame(tick);
   }

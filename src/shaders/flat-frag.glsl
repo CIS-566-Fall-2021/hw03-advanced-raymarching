@@ -24,14 +24,15 @@ const float EPSILON = 1e-5;
 #define BLUE_CUBE 1
 #define BLUE_PLANK 2
 #define BLUE_SABER 3
-#define INSIDE 4
+#define BLUE_SIDE 4
+#define INSIDE 5
 #define RED_CUBE 11
 #define RED_SABER 12
 #define WHITE_TRIANGLE 233
 #define WHITE_GLOW 666
 
 #define TO_RADIAN 3.14159/180.0
-#define TIME 1.0 //u_Time
+#define TIME u_Time
 
 const float DELTA = 0.085;
 const float K = 2.;
@@ -68,7 +69,7 @@ float n21 (vec3 uvw)
 
 float smoothNoise (vec3 uvw)
 {
-    float fbl = n21(floor(uvw)) * sin(u_Time);
+    float fbl = n21(floor(uvw));
     float fbr = n21(vec3(1.0,0.0,0.0)+floor(uvw));
     float ful = n21(vec3(0.0,1.0,0.0)+floor(uvw));
     float fur = n21(vec3(1.0,1.0,0.0)+floor(uvw));
@@ -187,11 +188,6 @@ float opSmoothSubtraction( float d1, float d2, float k ) {
 
 float opIntersection( float d1, float d2 ) { return max(d1,d2); }
 
-// float opRep( in vec3 p, in vec3 c, in sdf3d primitive )
-// {
-//     vec3 q = mod(p+0.5*c,c)-0.5*c;
-//     return primitive( q );
-// }
 
 vec3 rotateX(vec3 p, float theta) {
     float c = cos(theta);
@@ -292,16 +288,14 @@ float subsurface(vec3 lightDir, vec3 normal, vec3 viewVec, float thinness) {
 #define P1 vec3(0.f,8.f,-100.f)
 #define P2 vec3(-9.f,19.f,-21.f)
 #define P3 vec3(9.f,19.f,-21.f)
-#define TEST_SPHERE_SDF sdfSphere(queryPos, vec3(0.0, 0.0, 0.0), 0.5)
-#define TEST_SPHERE_SDF2 sdfSphere(queryPos, vec3(cos(time) * 2.0, 0.0, 0.0), abs(cos(time)))
 #define PLANK1 sdBox(queryPos + P1,vec3(10.f,1.f,80.f))
 #define PLANK2 sdBox(queryPos + P2,vec3(1.f,10.f,1.f))
 #define PLANK3 sdBox(queryPos + P3,vec3(1.f,10.f,1.f))
 
-#define BC1 vec3(-8.f,0.f,-10.f * sin(time))
-#define BC2 vec3(2.f,-1.2f,-15.f)
-#define RC1 vec3(-2.f,-5.f,-7.f * sin(time))
-#define RC2 vec3(2.f,2.f,-15.f)
+#define BC1 vec3(-8.f,0.f,-10.f + ctime)
+#define BC2 vec3(2.f,-1.2f,-15.f + ctime)
+#define RC1 vec3(-2.f,-5.f,-7.f + ctime)
+#define RC2 vec3(2.f,2.f,-15.f + ctime)
 
 // #define BT1 vec3(1.f,4.f,-0.6f)
 #define BT1 BC1 + vec3(0.8f,0.f,1.4f)
@@ -311,6 +305,13 @@ float subsurface(vec3 lightDir, vec3 normal, vec3 viewVec, float thinness) {
 
 #define BS vec3(-0.f,3.f,-1.f) + rotateY(vec3(1.f,1.f,1.f), 90.0*TO_RADIAN*ease_in_quadratic(cos(time))) 
 #define RS vec3(-6.f,5.f,-1.f) + rotateZ(vec3(1.f,1.f,1.f), 90.0*TO_RADIAN*sin(time)) 
+
+// #define BS vec3(-0.f,3.f,-1.f) + rotateY(vec3(1.f,1.f,1.f), (90.0+stime)*TO_RADIAN) 
+// #define RS vec3(-6.f,5.f,-1.f) + rotateZ(vec3(1.f,1.f,1.f), (90.0+stime)*TO_RADIAN) 
+
+// #define BS vec3(-0.f,3.f,-1.f)
+// #define RS vec3(-6.f,5.f,-1.f)
+
 
 #define BS1 vec3(9.8f,6.5f,-20.f)
 #define RS1 vec3(-9.8f,6.5f,-20.f)
@@ -335,12 +336,12 @@ float subsurface(vec3 lightDir, vec3 normal, vec3 viewVec, float thinness) {
 #define DISK2 sdSphere(DP,12.f)
 #define DISK opSubtraction(DISK2, DISK1)
 
-#define BSABER_U sdCapsule(queryPos + BS, vec3(0.2f,0.2f,1.f),vec3(5.f,10.f,1.f),0.2)
-#define RSABER_U sdCapsule(queryPos + RS, vec3(1.f,1.f,1.f),vec3(-10.f,5.f,2.f),0.2)
-#define BSABER_B sdCapsule(queryPos + BS, vec3(0.2f,0.2f,1.f),vec3(5.f,10.f,1.f),0.2)
-#define RSABER_B sdCapsule(queryPos + RS, vec3(1.f,1.f,1.f),vec3(-10.f,5.f,2.f),0.2)
-#define BSABER opUnion(BSABER_U,BSABER_B)
-#define RSABER opUnion(RSABER_U,RSABER_B)
+#define BSABER sdCapsule(queryPos + BS, vec3(0.2f,0.2f,1.f),rotateZ(vec3(5.f,10.f,1.f), 90.f*TO_RADIAN*sin(time)),0.2)
+#define RSABER sdCapsule(queryPos + RS, vec3(1.f,1.f,1.f),rotateY(vec3(-10.f,5.f,2.f), 90.f*TO_RADIAN*sin(time)),0.2)
+// #define BSABER_B sdCapsule(queryPos + BS, vec3(0.2f,0.2f,1.f),vec3(5.f,10.f,1.f),0.2)
+// #define RSABER_B sdCapsule(queryPos + RS, vec3(1.f,1.f,1.f),vec3(-10.f,5.f,2.f),0.2)
+// #define BSABER opUnion(BSABER_U,BSABER_B)
+// #define RSABER opUnion(RSABER_U,RSABER_B)
 
 #define BSIDE1 sdCapsule(queryPos + BS1, vec3(0.2f,0.2f,60.f),vec3(0.f,0.f,0.f),0.2)
 #define BSIDE2 sdCapsule(queryPos + RS1, vec3(0.2f,0.2f,60.f),vec3(0.f,0.f,0.f),0.2)
@@ -348,8 +349,10 @@ float subsurface(vec3 lightDir, vec3 normal, vec3 viewVec, float thinness) {
 
 float sceneSDF(vec3 queryPos) 
 {
-    // float time = 1.0;
-    float time = TIME;//u_Time/30.f;
+    float ctime = -80.f + float(int(TIME*5.f)%150);
+    // float stime = 30.f * sin(u_Time*0.2f);
+    float stime = 0.f;
+    float time = TIME/30.f;
     float t, t2;
     t = PLANK1;
     t2 = PLANK2;
@@ -379,8 +382,10 @@ float sceneSDF(vec3 queryPos)
 
 float sceneSDF(vec3 queryPos, out int id) 
 {
-    float time = TIME;
-    // float time = 0.f;
+    float ctime = -80.f + float(int(TIME)%150);
+    // float stime = 30.f * sin(u_Time*0.2f);
+    float stime = 0.f;
+    float time = TIME/30.f;
     float t, t2;
     t = PLANK1;
     id = BLUE_PLANK;
@@ -424,7 +429,7 @@ float sceneSDF(vec3 queryPos, out int id)
     } 
     if((t2 = side_t) < t){
         t = t2;
-        id = BLUE_SABER;
+        id = BLUE_SIDE;
     }      
     if((t2 = DISK2) < t){
         t = t2;
@@ -569,20 +574,22 @@ vec4 getSceneColor(vec2 uv)
         break;
 
         case BLUE_SABER:
-        diffuseColor = rgb(163,219,250);
-        blinn = 1;
-        float n1 = perlinNoise3D(fs_Pos4.xyz);
-        // float n2 = perlinNoise3D(u_Eye * 5.0);
-        // vec3 layer = 0.4 * vec3(n1) + 0.6 * vec3(n2);
-        // vec3 layer2 = 0.5 * diffuseColor / vec3(n1) + 0.5 * diffuseColor / vec3(n2);
-        // diffuseColor = diffuseColor + diffuseColor * layer + 0.5 * diffuseColor * layer2 * layer2 / 100.0;
-        diffuseColor += n1;
-        // return diffuseColor * lightIntensity;
+        diffuseColor = rgb(6,81,133);
+        float n1 = n21(fs_Pos4.xyz);
+        diffuseColor = n1 > 0.9? diffuseColor + n1 : diffuseColor;
+        break;
+
+        case BLUE_SIDE:
+        vec3 c1 = rgb(138,210,227);
+        vec3 c2 = rgb(59,127,171);
+        diffuseColor = c1;
+        diffuseColor += smoothstep(c1, c2, vec3(abs(sin(TIME/30.f))));
         break;
 
         case RED_SABER:
-        diffuseColor = rgb(236,138,147);
-        blinn = 1;
+        diffuseColor = rgb(174,36,44);
+        float n2 = n21(fs_Pos4.xyz);
+        diffuseColor = n2 > 0.9? diffuseColor + n2 : diffuseColor;
         break;
 
         case WHITE_GLOW:
@@ -596,11 +603,11 @@ vec4 getSceneColor(vec2 uv)
         return vec4(col2,1);
 
         case INSIDE:
-        mist += 0.5*perlinNoise3D(vec3(fs_Pos4.xyz));
+        mist += perlinNoise3D(vec3(fs_Pos4.xyz));
         return vec4(mist,1);
 
         default:
-        return vec4(0,0,0,1);
+        return vec4(mist,1);
      }
 
     //blinn shading
@@ -626,7 +633,7 @@ void main() {
     vec2 uv = fs_Pos;
     vec2 p = uv;
     // camera
-    float time = mod( u_Time, 60.0 );
+    float time = mod( TIME, 60.0 );
     // p += vec2(1.0,3.0)*0.001*2.0*cos( u_Time*5.0 + vec2(0.0,1.5) );    
     // p += vec2(1.0,3.0)*0.001*1.0*cos( time*9.0 + vec2(1.0,4.5) );    
     // float an = 0.3*sin( 0.1*time );

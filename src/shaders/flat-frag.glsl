@@ -630,13 +630,14 @@ vec4 getSceneColor(vec2 uv)
         // Material base color (before shading)
         diffuseColor += max(pow(dot(normalize(H.xyz), normalize(i.normal)), exp), 0.0);
     }
+
     float K = 100.f;
     float sh = shadow(lightDir, i.position, 0.1, K, lightPos);
     vec3 col = diffuseColor.rgb * diffuseTerm * sh;
     // sh = shadow(lightDir2, i.position, 0.1, K, lightPos2);
-    // col += diffuseColor.rgb * diffuseTerm2 * sh;
+    col += diffuseColor.rgb * diffuseTerm2 * sh;
     // sh = shadow(lightDir3, i.position, 0.1, K, lightPos3);
-    // col += diffuseColor.rgb * diffuseTerm3 * sh;
+    col += diffuseColor.rgb * diffuseTerm3 * sh;
 
     // col = sh > 0.5 ? vec3(1.) : vec3(1., 0., 1.);
 

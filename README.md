@@ -4,7 +4,7 @@ PennKey : smlee18
 
 Inspiration: https://www.youtube.com/watch?t=596&fbclid=IwAR1bL0yg79VJTeRl3MopTtCPIDUA2mSWdGRWKI08Wkx3qX8kYcUEaylCWIo&v=zlZR8nePEOY&feature=youtu.be&ab_channel=PratulDesigns
 
-Live Demo: https://18smlee.github.io/hw02-raymarching-sdfs/
+Live Demo: https://18smlee.github.io/hw03-advanced-raymarching/
 
 ## Cylinders
 - Performed opRepLim on a block of cylinders and smooth subtracted them from the floor plane

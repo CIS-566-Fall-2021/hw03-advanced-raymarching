@@ -9,8 +9,10 @@ precision highp float;
 #define MAT_GROUND 0
 #define MAT_HILL 1
 
+#define HARD_SHADOW 0
 // High Dynamic Range
-#define SUN_KEY_LIGHT vec3(0.6, 0.4, 0.9) * 1.5
+#define SUN_KEY_LIGHT rgb(255.0, 200.0, 230.0)
+// #define SUN_KEY_LIGHT vec3(0.6, 0.4, 0.9) * 1.5
 // Fill light is sky color, fills in shadows to not be black
 #define SKY_FILL_LIGHT vec3(0.7, 0.2, 0.7) * 0.2
 // Faking global illumination by having sunlight
@@ -67,6 +69,7 @@ struct hitObj
 float dot2( in vec2 v ) { return dot(v,v); }
 float dot2( in vec3 v ) { return dot(v,v); }
 float ndot( in vec2 a, in vec2 b ) { return a.x*b.x - a.y*b.y; }
+vec3 rgb(float r, float g, float b) { return vec3(r / 255.0, g / 255.0, b / 255.0); }
 
 vec2 rotatePoint2d(vec2 uv, vec2 center, float angle)
 {
@@ -239,9 +242,23 @@ float joe(vec3 queryPos, vec3 pos) {
     return joe;
 }
 
+vec3 computeMat(int mat_id, vec3 p, vec3 n) {
+    switch(mat_id) {
+        default:
+        return SUN_AMBIENT_LIGHT;
+    }
+}
+
 hitObj sceneSDF(vec3 queryPos)
 {
+
     hitObj obj = hitObj(-1.f, -1);
+
+    float boundingBoxHorizontal = sdBox(queryPos, vec3(30.0, 30.0, 30.0));
+    if (boundingBoxHorizontal > EPSILON) {
+        obj.distance_t = 10000.0;
+        return obj;
+    }
 
     float groundY = -2.0;
     float ground = planeSDF(queryPos - vec3(0.0, groundY, 0.0), 0.0f);
@@ -458,11 +475,27 @@ float softShadow(vec3 rDir, vec3 rOrigin, float mint, float maxt, float k)
     return res;
 }
 
+// float shadow(vec3 dir, vec3 origin, float min_t) {
+//     return softShadow(dir, origin, min_t, float(MAX_RAY_STEPS), 6.0);
+// }
+
+// float hardShadow(vec3 dir, vec3 origin, float min_t) {
+//     float t = min_t;
+//     for(int i = 0; i < MAX_RAY_STEPS; ++i) {
+//         float m = sceneMap3D(origin + t * dir);
+//         if(m < 0.0001) {
+//             return 0.0;
+//         }
+//         t += m;
+//     }
+//     return 1.0;
+// }
+
 // float softShadow(vec3 dir, vec3 origin, float min_t, float k) {
 //     float res = 1.0;
 //     float t = min_t;
 //     for(int i = 0; i < MAX_RAY_STEPS; ++i) {
-//         float m = shadowMap3D(origin + t * dir);
+//         float m = sceneMap3D(origin + t * dir);
 //         if(m < 0.0001) {
 //             return 0.0;
 //         }
@@ -473,7 +506,11 @@ float softShadow(vec3 rDir, vec3 rOrigin, float mint, float maxt, float k)
 // }
 
 float shadow(vec3 dir, vec3 origin, float min_t) {
-    return softShadow(dir, origin, min_t, float(MAX_RAY_STEPS), 6.0);
+    // #if HARD_SHADOW
+    // return hardShadow(dir, origin, min_t);
+    // #else
+    return softShadow(dir, origin, min_t, 100.0, 2.0);
+    // #endif
 }
 
 vec3 palette( in float t, in vec3 a, in vec3 b, in vec3 c, in vec3 d )
@@ -491,7 +528,7 @@ vec3 getSceneColor(vec2 uv)
     
     DirectionalLight lights[3];
 
-    vec3 lightDir0 = vec3(15.0, -3.0, 10.0);
+    vec3 lightDir0 = vec3(15.0, 15.0, 15.0);
     vec3 lightDir1 = vec3(0.0, 1.0, 0.0);
     vec3 lightDir2 = vec3(15.0, 0.0, 10.0);
     lights[0] = DirectionalLight(normalize(lightDir0), SUN_KEY_LIGHT);
@@ -502,8 +539,8 @@ vec3 getSceneColor(vec2 uv)
     vec3 albedo = vec3(0.5);
     // vec3 n = estimateNorm(intersection.position);
 
-    vec3 color = albedo * lights[0].col * max(0.0, dot(intersection.normal, lights[0].dir)) * shadow(lights[0].dir, intersection.position, 0.1);
-    // vec3 color = albedo * lights[0].col * max(0.0, dot(n, lights[0].dir));
+    // vec3 color = albedo * lights[0].col * max(0.0, dot(intersection.normal, lights[0].dir)) * shadow(lights[0].dir, intersection.position, 0.1);
+    vec3 color = albedo * lights[0].col * max(0.0, dot(intersection.normal, lights[0].dir));
     if (intersection.distance_t > 0.0) { 
         for(int i = 1; i < 3; ++i) {
             color += albedo * lights[i].col * max(0.0, dot(intersection.normal, lights[i].dir));
@@ -515,6 +552,32 @@ vec3 getSceneColor(vec2 uv)
     return color;
 }
 
+vec3 getSceneColor2(vec2 uv)
+{
+    Intersection intersection = getRaymarchedIntersection(uv);
+    Ray r = getRay(uv);
+    // vec3 isect = u_Eye + intersection.distance_t * r.direction;
+    // vec3 nor = estimateNorm(intersection.position);
+    // vec3 view = normalize(u_Eye - intersection.position);
+    
+    vec3 isect = intersection.position;
+    vec3 nor = intersection.normal;
+    vec3 mat = computeMat(intersection.material_id, isect, nor);
+    
+    vec3 warmDir = normalize(vec3(1.0, 1.0, 1.0));
+    vec3 coolDir = normalize(vec3(-1.0, 0.0, -1.0));
+
+    float warmDot = max(0.0, dot(nor, warmDir));
+    float coolDot = max(0.0, dot(nor, coolDir));
+
+    vec3 color = warmDot * SUN_KEY_LIGHT * shadow(warmDir, isect, 0.1);
+    color += coolDot * vec3(0.05, 0.2, 0.5);
+    color *= mat;
+    color = clamp(color + vec3(0.05, 0.1, 0.15), 0.0, 1.0);
+    
+    return color;
+}
+
 void main() {
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = fs_Pos;
@@ -523,7 +586,8 @@ void main() {
     // uv = uv * 2.0 - 1.0;
 
     // Time varying pixel color
-    vec3 col = getSceneColor(uv);
+    // vec3 col = getSceneColor(uv);
+    vec3 col = getSceneColor2(uv);
 
     // Output to screen
     out_Col = vec4(col,1.0);

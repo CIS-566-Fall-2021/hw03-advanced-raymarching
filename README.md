@@ -29,13 +29,13 @@ https://feliyick.github.io/hw03-advanced-raymarching/
 
 ### Materials 
 The materials in the scene utilise lambert shading with various colours and noise functions to add texturing/colour. 
-- **Tower** - lambert shading
+- **Tower** - lambert shading, and using a thresholded fbm noise combined with bias along the tower's y-axis to add some foliage/vines.
 - **Tower Details** - Wood texturing using @dean_the_coder's shader toy linked above
 - **Background** - lambert + blinn phong + fbm colour
-- **Grass** - gbm for colouring
+- **Grass** - fbm for colouring
 
 ### Lighting and shadows
-There are 4 lights in the scene: key light, fill light, ambient light, and foggy light. The foggy light is an attempt to make the background slightly more purple than the foreground. 
+There are 4 lights in the scene: key light, fill light, ambient light, and foggy light. The foggy light is an attempt to make the background slightly more purple than the foreground. I implemented ambient occlusion to help with contrast.
 
 ### Frame rate
 I used the techniques discussed in lecture to increase the frame rate! The bounding boxes helped the most; I put bounding boxes around my tower, the roof/detail area, the background, foreground, and each bird. I also added a MAX_RAY_Z. 

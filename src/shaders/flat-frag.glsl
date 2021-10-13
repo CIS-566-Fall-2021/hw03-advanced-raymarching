@@ -272,7 +272,7 @@ float fbm(vec2 x) {
 	return v;
 }
 
-#define ATTENUATION 0
+#define ATTENUATION 1
 float subsurface(vec3 lightDir, vec3 normal, vec3 viewVec, float thinness) {
     vec3 scatteredLightDir = lightDir + normal * DISTORTION;
     float lightReachingEye = pow(clamp(dot(viewVec, -scatteredLightDir), 0.0, 1.0), GLOW) * BSSRDF_SCALE;
@@ -313,8 +313,8 @@ float subsurface(vec3 lightDir, vec3 normal, vec3 viewVec, float thinness) {
 // #define RS vec3(-6.f,5.f,-1.f)
 
 
-#define BS1 vec3(9.8f,6.5f,-20.f)
-#define RS1 vec3(-9.8f,6.5f,-20.f)
+#define BS1 vec3(9.8f,7.f,-20.f)
+#define RS1 vec3(-9.8f,7.f,-20.f)
 
 #define BCUBE1 sdRoundBox(queryPos + BC1,vec3(1.f,1.f,1.f),0.5)
 #define BCUBE2 sdRoundBox(queryPos + BC2,vec3(1.f,1.f,1.f),0.5)
@@ -335,22 +335,17 @@ float subsurface(vec3 lightDir, vec3 normal, vec3 viewVec, float thinness) {
 #define DISK1 sdCappedCylinder(DP,30.f,0.4f)
 #define DISK2 sdSphere(DP,12.f)
 #define DISK opSubtraction(DISK2, DISK1)
-#define DISKn opSubtraction(DISK1, DISK2)
 
 #define BSABER sdCapsule(queryPos + BS, vec3(0.2f,0.2f,1.f),rotateZ(vec3(5.f,10.f,1.f), 90.f*TO_RADIAN*sin(time)),0.2)
 #define RSABER sdCapsule(queryPos + RS, vec3(1.f,1.f,1.f),rotateY(vec3(-10.f,5.f,2.f), 90.f*TO_RADIAN*sin(time)),0.2)
-// #define BSABER_B sdCapsule(queryPos + BS, vec3(0.2f,0.2f,1.f),vec3(5.f,10.f,1.f),0.2)
-// #define RSABER_B sdCapsule(queryPos + RS, vec3(1.f,1.f,1.f),vec3(-10.f,5.f,2.f),0.2)
-// #define BSABER opUnion(BSABER_U,BSABER_B)
-// #define RSABER opUnion(RSABER_U,RSABER_B)
 
-#define BSIDE1 sdCapsule(queryPos + BS1, vec3(0.2f,0.2f,60.f),vec3(0.f,0.f,0.f),0.2)
-#define BSIDE2 sdCapsule(queryPos + RS1, vec3(0.2f,0.2f,60.f),vec3(0.f,0.f,0.f),0.2)
+#define BSIDE1 sdCapsule(queryPos + BS1, vec3(0.2f,0.2f,60.f),vec3(0.f,0.f,0.f),0.3)
+#define BSIDE2 sdCapsule(queryPos + RS1, vec3(0.2f,0.2f,60.f),vec3(0.f,0.f,0.f),0.3)
 
 
 float sceneSDF(vec3 queryPos) 
 {
-    float ctime = -80.f + float(int(TIME)%150);
+    float ctime = -80.f + float(int(TIME)%200);
     // float stime = 30.f * sin(u_Time*0.2f);
     float stime = 0.f;
     float time = TIME/30.f;
@@ -370,7 +365,7 @@ float sceneSDF(vec3 queryPos)
 
 
 float sceneSDFshadow(vec3 queryPos){
-    float ctime = -80.f + float(int(TIME)%150);
+    float ctime = -80.f + float(int(TIME)%200);
     // float stime = 30.f * sin(u_Time*0.2f);
     float stime = 0.f;
     float time = TIME/30.f;
@@ -384,18 +379,17 @@ float sceneSDFshadow(vec3 queryPos){
 
 float sceneSDF(vec3 queryPos, out int id) 
 {
-    float ctime = -80.f + float(int(TIME)%150);
+    float ctime = -80.f + float(int(TIME)%200);
     // float stime = 30.f * sin(u_Time*0.2f);
     float stime = 0.f;
     float time = TIME/30.f;
-    float t, t2;
     // 1. Evaluate all SDFs as material groups
     float white_t = min(min(TRI1,TRI4), min(TRI2, TRI3));
     float darkBlue_t = min(min(PLANK2, PLANK1), min(PLANK3,DISK));
     float bluecube_t = min(BCUBE1, BCUBE2);
     float redcube_t = min(RCUBE1, RCUBE2);
     float side_t = min(BSIDE1, BSIDE2);
-    t = darkBlue_t;
+    float t = darkBlue_t;
     id = BLUE_PLANK;
     if(white_t < t) {
         t = white_t;
@@ -409,28 +403,20 @@ float sceneSDF(vec3 queryPos, out int id)
         t = redcube_t;
         id = RED_CUBE;
     }
-    // if((t2 = BSABER_B) < t){
-    //     t = t2;
-    //     id = BLUE_PLANK;
-    // } 
-    // if((t2 = RSABER_B) < t){
-    //     t = t2;
-    //     id = BLUE_PLANK;
-    // } 
-    if((t2 = BSABER) < t){
-        t = t2;
+    if(BSABER < t){
+        t = BSABER;
         id = BLUE_SABER;
     } 
-    if((t2 = RSABER) < t){
-        t = t2;
+    if(RSABER < t){
+        t = RSABER;
         id = RED_SABER;
     } 
-    if((t2 = side_t) < t){
-        t = t2;
+    if(side_t < t){
+        t = side_t;
         id = BLUE_SIDE;
     }      
-    if((t2 = DISK2) < t){
-        t = t2;
+    if(DISK2 < t){
+        t = DISK2;
         id = INSIDE;
     }   
     return t;
@@ -543,7 +529,7 @@ vec4 getSceneColor(vec2 uv)
         //lambert shading
     vec3 lightPos = vec3(0.f, 0.f, 0.f); //Key Light - from the back
     vec3 lightPos2 = vec3(10.f, 10.f, -10.f); //Fill Light
-    vec3 lightPos3 = vec3(0.f, 100.f, 0.f); //GI Light 
+    vec3 lightPos3 = vec3(100.f, 1000.f, 0.f); //GI Light 
     vec3 lightDir = normalize(lightPos - i.position);
     vec3 lightDir2 =  normalize(lightPos2 - i.position);
     vec3 lightDir3 =  normalize(lightPos3 - i.position);
@@ -552,16 +538,13 @@ vec4 getSceneColor(vec2 uv)
     
     float diffuseTerm = dot(normalize(i.normal), lightDir);
     diffuseTerm = clamp(diffuseTerm, 0.f, 1.f)+ambientTerm;
-    // float lightIntensity = (diffuseTerm + ambientTerm);
-    
+
     float diffuseTerm2 = dot(normalize(i.normal), lightDir2);
     diffuseTerm2 = clamp(diffuseTerm2, 0.f, 1.f);
-    // float lightIntensity2 = (diffuseTerm2 + ambientTerm);
-    
+ 
     float diffuseTerm3 = dot(normalize(i.normal), lightDir3);
     diffuseTerm3 = clamp(diffuseTerm3, 0.f, 1.f);
-    // float lightIntensity3 = (diffuseTerm3 + ambientTerm);
-
+ 
     float dist = 1.0/length(uv);
     dist *= 0.1;
     dist = pow(dist,0.9);
@@ -570,26 +553,30 @@ vec4 getSceneColor(vec2 uv)
 
     switch(i.material_id) {
         case BLUE_PLANK: 
-        diffuseColor = rgb(5,23,44);
-        blinn = 1;
+        float fbm_noise = fbm(uv+fbm(uv+fbm(uv)));
+        diffuseColor = rgb(5,23,44) - fbm_noise*0.2 + perlinNoise3D(vec3(uv, 1.f));
         break;
 
         case BLUE_CUBE:
         diffuseColor = rgb(2,70,122);
+        blinn = 1;
         break;
 
         case RED_CUBE:
         diffuseColor = rgb(102,9,9);
+        blinn = 1;
         break;
 
         case WHITE_TRIANGLE:
         diffuseColor = rgb(255,255,255);
+        blinn = 1;
         break;
 
         case BLUE_SABER:
         diffuseColor = rgb(6,81,133);
         float n1 = n21(fs_Pos4.xyz);
         diffuseColor = n1 > 0.9? diffuseColor + n1 : diffuseColor;
+        blinn = 1;
         break;
 
         case BLUE_SIDE:
@@ -603,6 +590,7 @@ vec4 getSceneColor(vec2 uv)
         diffuseColor = rgb(174,36,44);
         float n2 = n21(fs_Pos4.xyz);
         diffuseColor = n2 > 0.9? diffuseColor + n2 : diffuseColor;
+        blinn = 1;
         break;
 
         case WHITE_GLOW:
@@ -612,7 +600,8 @@ vec4 getSceneColor(vec2 uv)
         col2 += 0.8*glow*exp(-4.0*d)*vec3(1.1,1.0,0.8);
         col2 += 0.2*glow*exp(-2.0*d);
         glow *= 0.85+0.15*smoothstep(0.25,0.7,1.0);
-        col2 = mix( col2, glow, 1.0-smoothstep(0.2,0.22,d) );
+        col2 = mix( col2, glow, 1.0-smoothstep(0.2,0.22,d));
+        blinn = 1;
         return vec4(col2,1);
 
         case INSIDE:
@@ -636,13 +625,10 @@ vec4 getSceneColor(vec2 uv)
     float sh = shadow(lightDir, i.position, 0.1, K, lightPos);
     vec3 col = diffuseColor.rgb * diffuseTerm * sh;
     // sh = shadow(lightDir2, i.position, 0.1, K, lightPos2);
-    col += diffuseColor.rgb * diffuseTerm2 * sh;
-    // sh = shadow(lightDir3, i.position, 0.1, K, lightPos3);
+    col += diffuseColor.rgb * diffuseTerm2;
+    sh = shadow(lightDir3, i.position, 0.1, K, lightPos3);
     col += diffuseColor.rgb * diffuseTerm3 * sh;
-
-    // col = sh > 0.5 ? vec3(1.) : vec3(1., 0., 1.);
-
-    // col = i.normal * 0.5 + vec3(0.5);
+    col = clamp(col, vec3(0.f), vec3(1.f));
     float dofBlurAmount = depthOfField(i);
     return vec4(col, dofBlurAmount);
     // return vec4(col, 1.f);
@@ -653,9 +639,9 @@ void main() {
     vec2 uv = fs_Pos;
     vec2 p = uv;
     // camera
-    float time = mod( TIME, 60.0 );
-    // p += vec2(1.0,3.0)*0.001*2.0*cos( u_Time*5.0 + vec2(0.0,1.5) );    
-    // p += vec2(1.0,3.0)*0.001*1.0*cos( time*9.0 + vec2(1.0,4.5) );    
+    // float time = mod( TIME, 60.0 );
+    // p += vec2(1.0,3.0)*0.001*2.0*cos( time + vec2(0.0,1.5) );    
+    // p += vec2(1.0,3.0)*0.001*1.0*cos( time + vec2(1.0,4.5) );    
     // float an = 0.3*sin( 0.1*time );
     // float co = cos(an);
     // float si = sin(an);

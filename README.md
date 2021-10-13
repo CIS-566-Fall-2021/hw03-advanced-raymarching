@@ -17,11 +17,12 @@ part1: ![](progress1.png)
 - Used SDF smoothunion and intersection to make beat cubes and light sabers
 - Used ease-in, sin, and cos functions to control the animations
 
-part2:
+part2: ![](progress2.png)
 
 - assigned different material color, lambert and blinn shading, and noise textures to the objects in the scene
-- lighted the scene with three light sources, with one that casted soft shadows using the penumbra shadows algorithm
-- computed Depth of field with focal length and range  
+- lighted the scene with three light sources (Key light, GL light, and fill light), with Key light that casted soft shadows using the penumbra shadows algorithm
+- computed Depth of field with focal length and range
+- Changed camera position for visual effects
 
 inspiration: ![](beatsaber.jpeg)
 
@@ -39,3 +40,4 @@ Resources:
 - https://www.iquilezles.org/www/articles/smin/smin.htm
 - https://www.shadertoy.com/view/fsdXzM
 - https://www.shadertoy.com/view/3s3GDn
+- https://www.shadertoy.com/view/MtcyWr

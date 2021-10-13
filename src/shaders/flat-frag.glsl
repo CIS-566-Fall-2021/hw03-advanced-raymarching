@@ -540,21 +540,33 @@ vec4 getSceneColor(vec2 uv)
     vec3 diffuseColor = vec3(1.f);
 
         //lambert shading
-    vec3 lightPos = vec3(0.f, 10.f, -10.f);
-    vec3 lightPos2 = vec3(0.f, 10.f, -10.f);
-    vec3 lightPos3 = vec3(0.f, 10.f, -10.f);
+    vec3 lightPos = vec3(0.f, 10.f, -100.f); //Key Light - from the back
+    vec3 lightPos2 = vec3(10.f, 10.f, -10.f); //Fill Light
+    vec3 lightPos3 = vec3(0.f, 100.f, 0.f); //GI Light 
     vec3 lightDir = lightPos - i.position;
+    vec3 lightDir2 = lightPos2 - i.position;
+    vec3 lightDir3 = lightPos3 - i.position;
 
-    float diffuseTerm = dot(normalize(i.normal), normalize(lightDir));
-    diffuseTerm = clamp(diffuseTerm, 0.f, 1.f);
     float ambientTerm = 0.5;
-    float lightIntensity = (diffuseTerm + ambientTerm);
+    
+    float diffuseTerm = dot(normalize(i.normal), normalize(lightDir));
+    diffuseTerm = clamp(diffuseTerm, 0.f, 1.f)+ambientTerm;
+    // float lightIntensity = (diffuseTerm + ambientTerm);
+    
+    float diffuseTerm2 = dot(normalize(i.normal), normalize(lightDir2));
+    diffuseTerm2 = clamp(diffuseTerm2, 0.f, 1.f);
+    // float lightIntensity2 = (diffuseTerm2 + ambientTerm);
+    
+    float diffuseTerm3 = dot(normalize(i.normal), normalize(lightDir3));
+    diffuseTerm3 = clamp(diffuseTerm3, 0.f, 1.f);
+    // float lightIntensity3 = (diffuseTerm3 + ambientTerm);
 
     float dist = 1.0/length(uv);
     dist *= 0.1;
     dist = pow(dist,0.9);
     vec3 mist = dist * vec3(0.25, 0.5, 0.8);
     mist = 1.0 - exp( -mist );
+
     switch(i.material_id) {
         case BLUE_PLANK: 
         diffuseColor = rgb(5,23,44);
@@ -620,12 +632,18 @@ vec4 getSceneColor(vec2 uv)
     }
     float K = 100.f;
     float sh = shadow(lightDir, i.position, 0.1, K, lightPos);
-    vec3 col = diffuseColor.rgb * lightIntensity * sh;
-    //col = sh > 0.5 ? vec3(1.) : vec3(1., 0., 1.);
+    vec3 col = diffuseColor.rgb * diffuseTerm * sh;
+    // sh = shadow(lightDir2, i.position, 0.1, K, lightPos2);
+    // col += diffuseColor.rgb * diffuseTerm2 * sh;
+    // sh = shadow(lightDir3, i.position, 0.1, K, lightPos3);
+    // col += diffuseColor.rgb * diffuseTerm3 * sh;
+
+    // col = sh > 0.5 ? vec3(1.) : vec3(1., 0., 1.);
 
     // col = i.normal * 0.5 + vec3(0.5);
     float dofBlurAmount = depthOfField(i);
     return vec4(col, dofBlurAmount);
+    // return vec4(col, 1.f);
 }
 
 

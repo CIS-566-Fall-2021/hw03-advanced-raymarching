@@ -4,7 +4,7 @@ PennKey : smlee18
 
 Live Demo: https://18smlee.github.io/hw03-advanced-raymarching/
 
-![image](images/satisfying.PNG)
+![image](images/satisfying.GIF)
 
 ## Inspiration
 I really liked the look of the 3D rendered satisfying videos - so I took inspiration from one I found online!

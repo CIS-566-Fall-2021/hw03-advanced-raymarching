@@ -10,17 +10,26 @@ out vec4 out_Col;
 
 const int RAY_STEPS = 256;
 #define DEG_TO_RAD 3.14159 / 180.0
-#define LIGHT_POS vec3(-8.0, 40.0, -12.0)
-#define MAX_RAY_Z 50.0;
+#define LIGHT_POS vec3(-8.0, 30.0, -8.0)
+#define MAX_RAY_Z 40.0;
 
 ////////// GEOMETRY //////////
 #define CENTER_TRI_SDF triangularPrism(rotateX(pos + vec3(0.0, 0.0, 0.0), -75.0), vec2(8.0, 1.0))
-#define MIDDLE_TRI_SDF triangularPrism(rotateX(pos + vec3(0.0, -0.25, 0.0), -75.0), vec2(6.0, 1.0))
+#define MIDDLE_TRI_SDF triangularPrism(rotateX(pos + vec3(0.0, -0.25, 0.0), -75.0), vec2(7.0, 1.0))
 #define SWORD_HOLDER_SDF triangularPrism(rotateX(pos + vec3(0.0, -0.5, 0.0), 105.0), vec2(2.0, 1.0))
-#define SWORD_BLADE_SDF box(pos + vec3(0.0, -3.0, 0.5), vec3(0.15, 1.8, 0.05))
-#define SWORD_GUARD_SDF box(pos + vec3(0.0, -4.9, 0.5), vec3(0.3, 0.1, 0.1))
-#define SWORD_HILT_SDF box(pos + vec3(0.0, -5.4, 0.5), vec3(0.1, 0.5, 0.08))
-#define SWORD_QUAD_SDF box(rotateZ(pos + vec3(0.0, -3.8, 0.5), 45.0), vec3(0.22, 0.22, 0.05))
+#define SWORD_BLADE_BOTTOM_SDF box(pos + vec3(0.0, -2.3, 0.5), vec3(0.25, 1.5, 0.03))
+#define SWORD_BLADE_TOP_SDF box(pos + vec3(0.0, -4.0, 0.5), vec3(0.15, 0.5, 0.03))
+#define SWORD_GUARD_SDF triangularPrism(rotateZ(pos + vec3(0.0, -4.9, 0.5), 180.0), vec2(0.35, 0.05))
+#define SWORD_HILT_SDF capsule(pos + vec3(0.0, -5.4, 0.5), vec3(0.0, 0.5, 0.04), vec3(0.0, 0.5, 0.04), 0.1)
+// #define SWORD_HILT_SDF box(pos + vec3(0.0, -5.4, 0.5), vec3(0.1, 0.5, 0.04))
+#define SWORD_HILT2_SDF box(pos + vec3(0.0, -4.8, 0.5), vec3(0.15, 0.05, 0.03))
+#define SWORD_GEM_SDF capsule(pos + vec3(0.0, -4.6, 0.0), vec3(0.0, 0.2, -0.55), vec3(0.0, -0.1, -0.55), 0.08)
+#define SWORD_LEFT_WING_SDF box(rotateZ(pos + vec3(0.25, -4.7, 0.5), -60.0), vec3(0.1, 0.5, 0.05))
+#define SWORD_RIGHT_WING_SDF box(rotateZ(pos + vec3(-0.25, -4.7, 0.5), 60.0), vec3(0.1, 0.5, 0.05))
+#define SWORD_LEFT_WING_END_SDF triangularPrism(rotateZ(pos + vec3(0.68, -4.75, 0.5), 15.0), vec2(0.26, 0.05))
+#define SWORD_RIGHT_WING_END_SDF triangularPrism(rotateZ(pos + vec3(-0.68, -4.75, 0.5), -15.0), vec2(0.26, 0.05))
+#define SWORD_END_SDF box(rotateZ(pos + vec3(0.0, -6.0, 0.5), 45.0), vec3(0.15, 0.15, 0.05))
+#define SWORD_QUAD_SDF box(rotateZ(pos + vec3(0.0, -3.8, 0.5), 45.0), vec3(0.22, 0.22, 0.03))
 
 #define TOP_STEP_SDF roundBox(rotateX(rotateZ(pos + vec3(0.4, 1.95, 4.0), 2.0), 3.0), vec3(4.2, 1.0, 0.5), 0.25)
 #define TOP_STEP_CONNECTOR_SDF roundedCylinder(rotateX(pos + vec3(-3.5, 2.3, 4.5), 3.0), 0.5, 0.7, 0.5)
@@ -35,27 +44,18 @@ const int RAY_STEPS = 256;
 
 #define BACK_BOTTOM_STEP_SDF roundBox(pos + vec3(0.0, -1.0, -20.0), vec3(7.0, 4.0, 1.5), 0.25)
 #define BACK_TOP_STEP_SDF roundBox(pos + vec3(0.0, -5.0, -24.0), vec3(4.0, 4.0, 1.5), 0.25)
-#define FLOATING_ROCK_SDF ellipsoid(pos + vec3(0.0, -23.0, -24.0) + vec3(0.0, 5.0, 0.0) * bias(0.8f, cos(u_Time / 4.f)), vec3(4.0, 8.0, 4.0))
-
-// May add additional elements later
-// #define RIGHT_TREE_TRUNK_SDF roundedCylinder(pos + vec3(14.0, 0.0, 0.0), 0.6, 0.8, 7.5)
-// #define RIGHT_TREE_BRANCH1_SDF roundedCylinder(rotateZ(pos + vec3(20.0, -10.0, 0.5), -60.0), 0.4, 0.6, 7.0)
-// #define RIGHT_TREE_BRANCH2_SDF roundedCylinder(rotateX(rotateZ(pos + vec3(13.0, -7.0, -2.0), 90.0), -60.0), 0.3, 0.5, 3.0)
-// #define RIGHT_TREE_BRANCH3_SDF roundedCylinder(rotateZ(pos + vec3(8.0, -10.0, 0.0), 60.0), 0.3, 0.5, 7.0)
-// #define RIGHT_TREE_SDF smoothBlend(RIGHT_TREE_BRANCH1_SDF, smoothBlend(RIGHT_TREE_BRANCH2_SDF, smoothBlend(RIGHT_TREE_BRANCH3_SDF, RIGHT_TREE_TRUNK_SDF, 1.0), 1.0), 1.0)
-
-// #define TOP_ROOT1_SDF capsule(pos + vec3(2.0, -12.0, -4.0), vec3(-10.0, 0.0, 0.0), vec3(5.0, -2.2, 0.0), 2.5)
-// #define TOP_ROOT2_SDF capsule(pos + vec3(-4.5, -9.0, -5.0), vec3(0.0, 0.0, -0.8), vec3(5.0, -6.0, 0.0), 2.3)
-// #define TOP_ROOT_SDF smoothBlend(TOP_ROOT1_SDF, TOP_ROOT2_SDF, 1.0)
+#define FLOATING_ROCK_SDF ellipsoid(pos + vec3(0.0, -23.0, -24.0) + vec3(0.0, 5.0, 0.0) * bias(0.8f, cos(u_Time / 20.f)), vec3(4.0, 8.0, 4.0))
 ////////// GEOMETRY ENDS //////////
 
 #define CENTER_TRI 0
 #define MIDDLE_TRI 1
 #define SWORD_HOLDER 2
-#define SWORD_BLADE 3
+#define SWORD_BLADE_BOTTOM 3
+#define SWORD_BLADE_TOP 20
 #define SWORD_QUAD 4
 #define SWORD_GUARD 5
 #define SWORD_HILT 6
+#define SWORD_HILT2 21
 #define FLOOR 7
 #define STEPS 8
 #define LEFT_FRONT_STONE 9
@@ -63,6 +63,12 @@ const int RAY_STEPS = 256;
 #define BACK_BOTTOM_STEP 11
 #define BACK_TOP_STEP 12
 #define FLOATING_ROCK 13
+#define SWORD_END 14
+#define SWORD_LEFT_WING 15
+#define SWORD_RIGHT_WING 16
+#define SWORD_LEFT_WING_END 17
+#define SWORD_RIGHT_WING_END 18
+#define SWORD_GEM 19
 
 ////////// SDFS //////////
 float sphere(vec3 p, float s) {
@@ -146,6 +152,11 @@ vec3 rotateY(vec3 p, float a) {
 vec3 rotateZ(vec3 p, float a) {
     a = DEG_TO_RAD * a;
     return vec3(cos(a) * p.x + -sin(a) * p.y, sin(a) * p.x + cos(a) * p.y, p.z);
+}
+
+// Referenced https://www.shadertoy.com/view/wdXfRH
+vec3 opCheapBend(in vec3 p, float k) {
+    return rotateZ(p, k * p.x);
 }
 ////////// TRANSFORMATIONS END //////////
 
@@ -296,10 +307,18 @@ bool isRayTooLong(vec3 queryPoint, vec3 origin) {
 float findClosestObject(vec3 pos, vec3 lightPos) {
     float t = CENTER_TRI_SDF;
     t = min(t, SWORD_HOLDER_SDF);
-    t = min(t, SWORD_BLADE_SDF);
+    t = min(t, SWORD_BLADE_BOTTOM_SDF);
+    t = min(t, SWORD_BLADE_TOP_SDF);
     t = min(t, SWORD_GUARD_SDF);
     t = min(t, SWORD_HILT_SDF);
     t = min(t, SWORD_QUAD_SDF);
+    t = min(t, SWORD_END_SDF);
+    t = min(t, SWORD_LEFT_WING_SDF);
+    t = min(t, SWORD_RIGHT_WING_SDF);
+    t = min(t, SWORD_LEFT_WING_END_SDF);
+    t = min(t, SWORD_RIGHT_WING_END_SDF);
+    t = min(t, SWORD_GEM_SDF);
+    t = min(t, SWORD_HILT2_SDF);
     t = min(t, STEPS_SDF);
     t = min(t, LEFT_FRONT_STONE_SDF);
     t = min(t, RIGHT_FRONT_STONE_SDF);
@@ -322,9 +341,13 @@ void findClosestObject(vec3 pos, out float t, out int obj, vec3 lightPos) {
           t = t2;
           obj = SWORD_HOLDER;
       }
-      if((t2 = SWORD_BLADE_SDF) < t) {
+      if((t2 = SWORD_BLADE_BOTTOM_SDF) < t) {
           t = t2;
-          obj = SWORD_BLADE;
+          obj = SWORD_BLADE_BOTTOM;
+      }
+      if((t2 = SWORD_BLADE_TOP_SDF) < t) {
+          t = t2;
+          obj = SWORD_BLADE_TOP;
       }
       if((t2 = SWORD_GUARD_SDF) < t) {
           t = t2;
@@ -334,9 +357,37 @@ void findClosestObject(vec3 pos, out float t, out int obj, vec3 lightPos) {
           t = t2;
           obj = SWORD_HILT;
       }
+      if((t2 = SWORD_HILT2_SDF) < t) {
+          t = t2;
+          obj = SWORD_HILT2;
+      }
       if((t2 = SWORD_QUAD_SDF) < t) {
           t = t2;
           obj = SWORD_QUAD;
+      }
+      if((t2 = SWORD_END_SDF) < t) {
+          t = t2;
+          obj = SWORD_END;
+      }
+      if((t2 = SWORD_LEFT_WING_SDF) < t) {
+          t = t2;
+          obj = SWORD_LEFT_WING;
+      }
+      if((t2 = SWORD_RIGHT_WING_SDF) < t) {
+          t = t2;
+          obj = SWORD_RIGHT_WING;
+      }
+      if((t2 = SWORD_LEFT_WING_END_SDF) < t) {
+          t = t2;
+          obj = SWORD_LEFT_WING_END;
+      }
+      if((t2 = SWORD_RIGHT_WING_END_SDF) < t) {
+          t = t2;
+          obj = SWORD_RIGHT_WING_END;
+      }
+      if((t2 = SWORD_GEM_SDF) < t) {
+          t = t2;
+          obj = SWORD_GEM;
       }
       if((t2 = STEPS_SDF) < t) {
           t = t2;
@@ -388,6 +439,20 @@ float hardShadow(vec3 dir, vec3 origin, float min_t, vec3 lightPos) {
     return 1.0;
 }
 
+float softShadow(vec3 dir, vec3 origin, float min_t, float k, vec3 lightPos) {
+    float res = 1.0;
+    float t = min_t;
+    for(int i = 0; i < RAY_STEPS; ++i) {
+        float m = findClosestObject(origin + t * dir, lightPos);
+        if(m < 0.0001) {
+            return 0.0;
+        }
+        res = min(res, k * m / t);
+        t += m;
+    }
+    return res;
+}
+
 void march(vec3 origin, vec3 dir, out float t, out int hitObj, vec3 lightPos) {
     t = 0.001;
     for(int i = 0; i < RAY_STEPS; i++) {
@@ -415,22 +480,44 @@ vec3 computeNormal(vec3 pos, vec3 lightPos) {
 
 vec3 getSceneColor(int hitObj, vec3 p, vec3 n, vec3 light, vec3 view) {
     float lambert = dot(n, light) + 0.3;
+    vec3 h = (view + light) / 2.0;
+    float shininess = 4.0;
+    vec3 specularColor = vec3(1.0);
+    vec3 blinnPhong = max(pow(dot(h, n), shininess), 0.f) * specularColor;
     switch(hitObj) {
         case CENTER_TRI:
         case SWORD_HOLDER:
-        case SWORD_BLADE:
-        case SWORD_GUARD:
-        case SWORD_HILT:
         case STEPS:
         case LEFT_FRONT_STONE:
         case RIGHT_FRONT_STONE:
-        case FLOOR:
         case MIDDLE_TRI:
         case SWORD_QUAD:
         case BACK_TOP_STEP:
         case BACK_BOTTOM_STEP:
         case FLOATING_ROCK:
+        return vec3(0.741, 0.694, 0.482) * lambert;
+        break;
+        case FLOOR:
+        return vec3(0.2, 0.6, 0.2) * lambert;
+        break;
+        case SWORD_BLADE_BOTTOM:
+        case SWORD_BLADE_TOP:
         return vec3(0.85, 0.8, 0.7) * lambert;
+        break;
+        case SWORD_HILT:
+        return vec3(0.1, 0.7, 0.7) * lambert;
+        break;
+        case SWORD_GUARD:
+        case SWORD_END:
+        case SWORD_LEFT_WING:
+        case SWORD_RIGHT_WING:
+        case SWORD_LEFT_WING_END:
+        case SWORD_RIGHT_WING_END:
+        case SWORD_HILT2:
+        return vec3(0.2, 0.2, 0.7) * lambert;
+        break;
+        case SWORD_GEM:
+        return vec3(0.7, 0.7, 0.1) * lambert + vec3(0.5) * blinnPhong;
         break;
     }
     return vec3(0.0);
@@ -447,7 +534,7 @@ Intersection getIntersection(vec3 dir, vec3 eye, vec3 lightPos) {
     
     vec3 lightDir = normalize(lightPos - isect);
     
-    surfaceColor *= getSceneColor(hitObj, isect, nor, lightDir, normalize(isect - eye)) * hardShadow(lightDir, isect, 0.1, lightPos);
+    surfaceColor *= getSceneColor(hitObj, isect, nor, lightDir, normalize(isect - eye)) * softShadow(lightDir, isect, 0.001, 8.0, lightPos);
     
     return Intersection(t, surfaceColor, isect, hitObj);
 }

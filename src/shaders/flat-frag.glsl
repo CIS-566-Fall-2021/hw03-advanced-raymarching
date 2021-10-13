@@ -113,9 +113,9 @@ float sdRoundBox( vec3 p, vec3 b, float r )
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
 }
 
-float plane(vec3 p, vec4 n)
+float plane(vec3 p, float planeHeight)
 {
-  return dot(p,n.xyz) + n.w;
+  return p.y - planeHeight;
 }
 
 float smin( float a, float b, float k )
@@ -201,7 +201,7 @@ float people(vec3 pos, float size)
 }
 
 // SCENE //
-#define FLOOR plane(queryPos, vec4(0.0, 1.0, 0.0, 2.5))
+#define FLOOR plane(queryPos, 0.0)
 #define BODY tower(queryPos + vec3(0.0, 0.2, 0.0))
 #define THING min(people(queryPos + vec3(-1.3, 0.0, 1.2), 3.0), min(people(queryPos + vec3(2.0, 0.0, -2.4), 2.0), people(queryPos + vec3(-1.5, 0.0, -1.5), 4.0)))
 
@@ -301,35 +301,38 @@ Intersection getRaymarchedIntersection(vec2 uv)
     return intersection;
 }
 
-float hardShadow(vec3 origin, vec3 dir, float min_t, float max_t) {
+float softShadow(vec3 origin, vec3 dir, float min_t, float max_t, float k) {
     for(float t = min_t; t < max_t;) 
     {
-        vec3 pos = origin + t * dir;
-        float dist = sceneSDF(origin + t * dir);
-        if(dist < EPSILON) 
+        float h = sceneSDF(origin + t * dir);
+        if (h < EPSILON) 
         {
             return 0.0;
         }
-        t += dist;
+        res = min(res, k * h / t );
+        t += h;
     }
     return 1.0;
 }
 
-vec3 calculateMaterial(int material_id, vec3 normal, vec3 lightDir)
+vec3 calculateMaterial(int material_id, vec3 normal, vec3 lightDir, vec3 viewDir)
 {
   float ambient = 0.2;
   float lambert = max(0.0, dot(normal, lightDir)) + ambient;
+  vec3 halfVec = (lightDir + viewDir) / 2.0; 
+  float specular = pow(max(dot(halfVec, normal), 0.0), 32.0);
+  float blinn = lambert + 0.75 * specular;
 
   switch (material_id)
   {
     case FLOOR_NUM:
-      return rgb(vec3(82, 143, 47)) * lambert;
+      return rgb(vec3(82, 143, 47)) * blinn;
       break;
     case BODY_NUM:
-      return rgb(vec3(226, 227, 200)) * lambert;
+      return rgb(vec3(226, 227, 200)) * blinn;
       break;
     case THING_NUM:
-      return rgb(vec3(88, 230, 232)) * lambert;
+      return rgb(vec3(88, 230, 232)) * blinn;
       break;
     case -1:
       return rgb(vec3(149, 228, 252));
@@ -343,9 +346,10 @@ vec3 getSceneColor(vec2 uv, vec3 lightPos)
   Intersection intersection = getRaymarchedIntersection(uv);
   vec3 lightDir = normalize(lightPos - intersection.position);
   vec3 light_t = (lightPos - intersection.position) / lightDir;
-  float hardShadow = hardShadow(intersection.position, lightDir, 0.1, light_t.x);
-  vec3 col = calculateMaterial(intersection.material_id, intersection.normal, lightDir);
-  return col * hardShadow;
+  vec3 viewDir = normalize(u_Ref - u_Eye);
+  float softShadow = softShadow(intersection.position, lightDir, 0.1, light_t.x, 8.0);
+  vec3 col = calculateMaterial(intersection.material_id, intersection.normal, lightDir, viewDir);
+  return col * softShadow;
 }
 
 void main() {

@@ -306,13 +306,6 @@ float subsurface(vec3 lightDir, vec3 normal, vec3 viewVec, float thinness) {
 #define BS vec3(-0.f,3.f,-1.f) + rotateY(vec3(1.f,1.f,1.f), 90.0*TO_RADIAN*ease_in_quadratic(cos(time))) 
 #define RS vec3(-6.f,5.f,-1.f) + rotateZ(vec3(1.f,1.f,1.f), 90.0*TO_RADIAN*sin(time)) 
 
-// #define BS vec3(-0.f,3.f,-1.f) + rotateY(vec3(1.f,1.f,1.f), (90.0+stime)*TO_RADIAN) 
-// #define RS vec3(-6.f,5.f,-1.f) + rotateZ(vec3(1.f,1.f,1.f), (90.0+stime)*TO_RADIAN) 
-
-// #define BS vec3(-0.f,3.f,-1.f)
-// #define RS vec3(-6.f,5.f,-1.f)
-
-
 #define BS1 vec3(9.8f,7.f,-20.f)
 #define RS1 vec3(-9.8f,7.f,-20.f)
 
@@ -346,9 +339,7 @@ float subsurface(vec3 lightDir, vec3 normal, vec3 viewVec, float thinness) {
 float sceneSDF(vec3 queryPos) 
 {
     float ctime = -80.f + float(int(TIME)%200);
-    // float stime = 30.f * sin(u_Time*0.2f);
-    float stime = 0.f;
-    float time = TIME/30.f;
+    float time = TIME/20.f;
     float t = min(PLANK1,PLANK2);
     t = min(t,PLANK3);
     t = min(t,BCUBE11);
@@ -366,9 +357,7 @@ float sceneSDF(vec3 queryPos)
 
 float sceneSDFshadow(vec3 queryPos){
     float ctime = -80.f + float(int(TIME)%200);
-    // float stime = 30.f * sin(u_Time*0.2f);
-    float stime = 0.f;
-    float time = TIME/30.f;
+    float time = TIME/20.f;
     float t = min(min(BCUBE11, BCUBE22), min(RCUBE11, BCUBE22));
     t = min(t, min(BSABER, RSABER));
     // t = min(t,DISK);
@@ -380,9 +369,7 @@ float sceneSDFshadow(vec3 queryPos){
 float sceneSDF(vec3 queryPos, out int id) 
 {
     float ctime = -80.f + float(int(TIME)%200);
-    // float stime = 30.f * sin(u_Time*0.2f);
-    float stime = 0.f;
-    float time = TIME/30.f;
+    float time = TIME/20.f;
     // 1. Evaluate all SDFs as material groups
     float white_t = min(min(TRI1,TRI4), min(TRI2, TRI3));
     float darkBlue_t = min(min(PLANK2, PLANK1), min(PLANK3,DISK));
@@ -528,8 +515,8 @@ vec4 getSceneColor(vec2 uv)
 
         //lambert shading
     vec3 lightPos = vec3(0.f, 0.f, 0.f); //Key Light - from the back
-    vec3 lightPos2 = vec3(10.f, 10.f, -10.f); //Fill Light
-    vec3 lightPos3 = vec3(100.f, 1000.f, 0.f); //GI Light 
+    vec3 lightPos2 = vec3(100.f, 10.f, -100.f); //Fill Light
+    vec3 lightPos3 = vec3(0.f, 1000.f, 0.f); //GI Light 
     vec3 lightDir = normalize(lightPos - i.position);
     vec3 lightDir2 =  normalize(lightPos2 - i.position);
     vec3 lightDir3 =  normalize(lightPos3 - i.position);

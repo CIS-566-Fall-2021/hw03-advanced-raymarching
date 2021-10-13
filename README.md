@@ -1,47 +1,20 @@
-# CIS 566 Homework 3: Advanced Raymarched Scenes
+# CIS 566 Homework 2: Implicit Surfaces
+Name : Samantha Lee
+PennKey : smlee18
 
-## Objective
-- Gain experience with signed distance functions
-- Experiment with animation curves
-- Create a presentable portfolio piece
+Inspiration: https://www.youtube.com/watch?t=596&fbclid=IwAR1bL0yg79VJTeRl3MopTtCPIDUA2mSWdGRWKI08Wkx3qX8kYcUEaylCWIo&v=zlZR8nePEOY&feature=youtu.be&ab_channel=PratulDesigns
 
-## Base Code
+Live Demo: https://18smlee.github.io/hw02-raymarching-sdfs/
 
-You will copy your implementation of hw02 into your hw03 repository.
-
-## Assignment Requirements
-- __(35 points) Artwork Replication__ Your raymarched scene should attempt to replicate the appearance of your inspiration (include picture) with clear effort put into the replication.
-- __(25 points) Materials__ Your scene should be composed of at least three different materials. We define a material to be a surface reflection model combined with some base surface color; texturing is optional.
-- __(10 points) Lighting and Shadows__ Light your scene with at least three light sources. At least one of your light sources must cast shadows, and they should be soft shadows using the penumbra shadows algorithm we discussed in class. Consider following the "Key Light, Fill Light, GI Light" formulation from the in-class example.
-- __(20 points) Performance__ The frame rate of your scene must be at least 10FPS.
-- __(10 points)__ Following the specifications listed
-[here](https://github.com/pjcozzi/Articles/blob/master/CIS565/GitHubRepo/README.md),
-create your own README.md, renaming this file to INSTRUCTIONS.md. Don't worry
-about discussing runtime optimization for this project. Make sure your
-README contains the following information:
-  - Your name and PennKey
-  - Citation of any external resources you found helpful when implementing this
-  assignment.
-  - A link to your live github.io demo
-  - An explanation of the techniques you used to model and animate your scene.
-
-## Useful Links
-- [IQ's Article on SDFs](http://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm)
-- [IQ's Article on Smooth Blending](http://www.iquilezles.org/www/articles/smin/smin.htm)
-- [IQ's Article on Useful Functions](http://www.iquilezles.org/www/articles/functions/functions.htm)
-- [Breakdown of Rendering an SDF Scene](http://www.iquilezles.org/www/material/nvscene2008/rwwtt.pdf)
+## Cylinders
+- Performed opRepLim on a block of cylinders and smooth subtracted them from the floor plane
+- Did the same function on a block of cylinders with a slightly smaller radius to give the illusion that they are coming in and out of the floor
+- Applied a cosine function to the cylinder heights and floored the input in order to keep the cylinder tops unwarped
 
 
-## Submission
-Commit and push to Github, then make a pull request on the hw03 repository with a title containing your name, and a comment containing a link to your live demo.
+## Pendulum
+- Smooth blended a sphere and a rod together to create a pendulum
+- Applied a smoothstep pulsing function to the y coordinate of the pendulum and a cos to the z coordinate to create a swinging motion
 
-## Inspiration
-- [Alien Corridor](https://www.shadertoy.com/view/4slyRs)
-- [The Evolution of Motion](https://www.shadertoy.com/view/XlfGzH)
-- [Fractal Land](https://www.shadertoy.com/view/XsBXWt)
-- [Voxel Edges](https://www.shadertoy.com/view/4dfGzs)
-- [Snail](https://www.shadertoy.com/view/ld3Gz2)
-- [Cubescape](https://www.shadertoy.com/view/Msl3Rr)
-- [Journey Tribute](https://www.shadertoy.com/view/ldlcRf)
-- [Stormy Landscape](https://www.shadertoy.com/view/4ts3z2)
-- [Generators](https://www.shadertoy.com/view/Xtf3Rn)
+## Notes
+I really liked the look of the 3D rendered satisfying videos - so I took inspiration from one I found online! In the future I will be timing the swing of the pendulum to follow exactly the wave of the cylinders. I would also like to add more balls to scene to make it a bit more complex looking. 

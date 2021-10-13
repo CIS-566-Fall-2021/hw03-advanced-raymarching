@@ -8,7 +8,11 @@
 
 - My interpretation
  
-![rapunzelTower_colour](https://user-images.githubusercontent.com/59979404/137064861-b2dab1e9-cc24-46d0-8cf2-8f4719d97fd3.PNG)
+![rapunzelTower_colour](https://user-images.githubusercontent.com/59979404/137066288-8437289d-3260-4e57-8d3a-be3abad622e5.PNG)
+
+- demo link (doesn't work not sure why)
+
+https://feliyick.github.io/hw03-advanced-raymarching/ 
 
 ### Helpful links:
 - https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm

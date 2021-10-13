@@ -8,9 +8,9 @@ uniform float u_Time;
 in vec2 fs_Pos;
 out vec4 out_Col;
 
-const int MAX_RAY_STEPS = 30;
+const int MAX_RAY_STEPS = 100;
 const float FOV = 45.0;
-const float EPSILON = .03;
+const float EPSILON = 0.0001;
 
 const vec3 EYE = vec3(0.0, 0.0, 10.0);
 const vec3 ORIGIN = vec3(0.0, 0.0, 0.0);
@@ -224,7 +224,7 @@ SDF kirbyStarSDF(vec3 queryPos) {
 SDF sceneSDF(vec3 queryPos) 
 {
     vec3 shaking = vec3(sin(u_Time * .2 * STAR_ANIM_SPEED) * .1, cos(u_Time * .4 * STAR_ANIM_SPEED) * .1, sin(((u_Time + 100.0) * STAR_ANIM_SPEED) * .3));
-    float boundSphere = sdSphere(queryPos + shaking, 3.0);
+    float boundSphere = sdSphere(queryPos, 3.0);
     if (boundSphere <= EPSILON) {
         SDF kirbyStar = kirbyStarSDF(queryPos + shaking);
         return kirbyStar;
@@ -259,17 +259,6 @@ vec3 getNormal(vec3 point) {
     return normalize(vec3(x, y, z));
 }
 
-float shadow(vec3 rayOrigin, vec3 rayDirection, float maxT) {
-    for (float t = 0.015; t <= maxT; ++t) {
-        float h = sceneSDF(rayOrigin + rayDirection * t).t;
-        if (h < 0.001) {
-            return 0.3;
-        }
-        t += h;
-    }
-    return 1.0;
-}
-
 Intersection getRaymarchedIntersection(vec2 uv)
 {
     Ray ray = getRay(uv);
@@ -294,11 +283,36 @@ Intersection getRaymarchedIntersection(vec2 uv)
     return intersection;
 }
 
+float softShadow( vec3 origin, vec3 dir, float k, int maxT) {
+    float res = 1.0;
+    float t = 0.0;
+    for(int i = 0; i < maxT; ++i) {
+        float m = sceneSDF(origin + t * dir).t;
+        if(m < EPSILON) {
+            return 0.0;
+        }
+        res = min(res, k * m / t);
+        t += m;
+    }
+    return res;
+}
+
+float hardShadow(vec3 rayOrigin, vec3 rayDirection, float maxT) {
+    for (float t = 0.015; t <= maxT; ++t) {
+        float h = sceneSDF(rayOrigin + rayDirection * t).t;
+        if (h < EPSILON) {
+            return 0.3;
+        }
+        t += h;
+    }
+    return 1.0;
+}
+
 vec3 rgbRemap(vec3 rgb) {
     return rgb / 255.0;
 }
 
-vec3 getMatColor(int matID)
+vec3 getMatColor(int matID, Intersection isect)
 {
     switch (matID) {
         case STAR_MAT:
@@ -306,7 +320,9 @@ vec3 getMatColor(int matID)
         case FEET_MAT:
             return rgbRemap(vec3(255.0, 94.0, 199.0));
         case BODY_MAT:
-            return rgbRemap(vec3(255.0, 168.0, 225.0));
+            float shading = softShadow(isect.position, normalize(LIGHT_POS - isect.position), .1, 10);
+            shading = hardShadow(isect.position, normalize(LIGHT_POS - isect.position), 10.0);
+            return rgbRemap(vec3(255.0, 168.0, 225.0)) * shading;
     }
     return vec3(0.0);
     
@@ -318,8 +334,8 @@ vec3 getSceneColor(vec2 uv)
     if (intersection.distance_t > 0.0)
     {
         int matID = intersection.material_id;
-        return getMatColor(matID);
-        float shadows = shadow(intersection.position, normalize(LIGHT_POS - intersection.position), 10.0);
+        return getMatColor(matID, intersection);
+        float shadows = hardShadow(intersection.position, normalize(LIGHT_POS - intersection.position), 10.0);
         vec4 diffuseColor = vec4(1.0);
 
         // Calculate the diffuse term for Lambert shading
@@ -334,7 +350,7 @@ vec3 getSceneColor(vec2 uv)
                                                             //lit by our point light are not completely black.
         return vec3(diffuseColor.rgb * lightIntensity) * shadows;
     }
-    return vec3(0.0f);
+    return vec3(0.0, 1.0, 1.0);
 }
 
 void main() {

@@ -64,7 +64,7 @@ function main() {
   const camera = new Camera(vec3.fromValues(0, 0, 10), vec3.fromValues(0, 0, 0));
 
   const renderer = new OpenGLRenderer(canvas);
-  renderer.setClearColor(164.0 / 255.0, 233.0 / 255.0, 1.0, 1);
+  renderer.setClearColor(0.0, 0.0, 1.0, 1);
   gl.enable(gl.DEPTH_TEST);
 
   const flat = new ShaderProgram([

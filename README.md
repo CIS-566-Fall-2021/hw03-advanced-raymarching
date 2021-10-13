@@ -8,6 +8,7 @@ Live Demo: https://18smlee.github.io/hw03-advanced-raymarching/
 
 ## Inspiration
 I really liked the look of the 3D rendered satisfying videos - so I took inspiration from one I found online!
+![image](images/inspiration.PNG)
 Inspiration: https://www.youtube.com/watch?t=596&fbclid=IwAR1bL0yg79VJTeRl3MopTtCPIDUA2mSWdGRWKI08Wkx3qX8kYcUEaylCWIo&v=zlZR8nePEOY&feature=youtu.be&ab_channel=PratulDesigns
 
 

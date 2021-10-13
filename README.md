@@ -1,4 +1,4 @@
-# CIS 566 Homework 2: Implicit Surfaces
+# CIS 566 Homework 3: Advanced Raymarch Scenes
 Name : Samantha Lee
 PennKey : smlee18
 

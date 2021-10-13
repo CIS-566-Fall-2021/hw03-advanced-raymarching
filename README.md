@@ -1,5 +1,41 @@
 # CIS 566 Homework 2: Implicit Surfaces
 
+## Submission
+
+- Inspiration pic
+
+![rapunzelTower](https://user-images.githubusercontent.com/59979404/137064871-13563820-6ca4-47be-965b-ebbcd1b8dced.png)
+
+- My interpretation
+ 
+![rapunzelTower_colour](https://user-images.githubusercontent.com/59979404/137064861-b2dab1e9-cc24-46d0-8cf2-8f4719d97fd3.PNG)
+
+### Helpful links:
+- https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
+- https://iquilezles.org/www/articles/warp/warp.htm
+- https://www.shadertoy.com/view/wl3czM
+- All of Adam's shader toys :) 
+
+### SDFs and animation
+
+- **Tower** - Smoothblended a series of capped cylinders for the tower neck, and roof. The tower also has wooden details which are created using boxes and toruses. The SDFs query point's are transformed and rotated to be placed into the scene. 
+- **Background and Foreground** - The background was created with a large sdBox, with several cylinders smoothSubtracted from the center, and smoothUnioned on the sides. This is  to mimic the depth and cave like rocks in the original image. fbm noise is used to add texture.
+- **Birds** - Birds are composed of ellipsoid bodies and wings. The body is translated in the x and y direction over time, where the y direction is manipulated via a bias and sin function. The wings are made to flap in a range of [-30, 30] degrees. 
+
+
+### Materials 
+The materials in the scene utilise lambert shading with various colours and noise functions to add texturing/colour. 
+- **Tower** - lambert shading
+- **Tower Details** - Wood texturing using @dean_the_coder's shader toy linked above
+- **Background** - lambert + blinn phong + fbm colour
+- **Grass** - gbm for colouring
+
+### Lighting and shadows
+There are 4 lights in the scene: key light, fill light, ambient light, and foggy light. The foggy light is an attempt to make the background slightly more purple than the foreground. 
+
+### Frame rate
+I used the techniques discussed in lecture to increase the frame rate! The bounding boxes helped the most; I put bounding boxes around my tower, the roof/detail area, the background, foreground, and each bird. I also added a MAX_RAY_Z. 
+
 ## Objective
 - Gain experience with signed distance functions
 - Experiment with animation curves

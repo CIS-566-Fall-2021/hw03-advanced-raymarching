@@ -17,7 +17,7 @@ part1: ![](progress1.png)
 - Used SDF smoothunion and intersection to make beat cubes and light sabers
 - Used ease-in, sin, and cos functions to control the animations
 
-part2: ![](progress2.png)
+part2: ![](progress2.png) ![](progress3.png)
 
 - assigned different material color, lambert and blinn shading, and noise textures to the objects in the scene
 - lighted the scene with three light sources (Key light, GL light, and fill light), with Key light that casted soft shadows using the penumbra shadows algorithm

@@ -1,47 +1,33 @@
 # CIS 566 Homework 3: Advanced Raymarched Scenes
+By Meggie Cheng (PennKey: meggie)
 
-## Objective
-- Gain experience with signed distance functions
-- Experiment with animation curves
-- Create a presentable portfolio piece
+## Result
+Link to live demo: https://tauntybird.github.io/hw03-advanced-raymarching/
 
-## Base Code
+Final render from default front view:
+![](blue_horse_final.png)
 
-You will copy your implementation of hw02 into your hw03 repository.
+View of displaced, angled plane from another side:
+![](blue_horse_final_plane.png)
 
-## Assignment Requirements
-- __(35 points) Artwork Replication__ Your raymarched scene should attempt to replicate the appearance of your inspiration (include picture) with clear effort put into the replication.
-- __(25 points) Materials__ Your scene should be composed of at least three different materials. We define a material to be a surface reflection model combined with some base surface color; texturing is optional.
-- __(10 points) Lighting and Shadows__ Light your scene with at least three light sources. At least one of your light sources must cast shadows, and they should be soft shadows using the penumbra shadows algorithm we discussed in class. Consider following the "Key Light, Fill Light, GI Light" formulation from the in-class example.
-- __(20 points) Performance__ The frame rate of your scene must be at least 10FPS.
-- __(10 points)__ Following the specifications listed
-[here](https://github.com/pjcozzi/Articles/blob/master/CIS565/GitHubRepo/README.md),
-create your own README.md, renaming this file to INSTRUCTIONS.md. Don't worry
-about discussing runtime optimization for this project. Make sure your
-README contains the following information:
-  - Your name and PennKey
-  - Citation of any external resources you found helpful when implementing this
-  assignment.
-  - A link to your live github.io demo
-  - An explanation of the techniques you used to model and animate your scene.
+View of platform below horse that is part of bounding sphere:
+![](blue_horse_final_platform.png)
 
-## Useful Links
-- [IQ's Article on SDFs](http://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm)
-- [IQ's Article on Smooth Blending](http://www.iquilezles.org/www/articles/smin/smin.htm)
-- [IQ's Article on Useful Functions](http://www.iquilezles.org/www/articles/functions/functions.htm)
-- [Breakdown of Rendering an SDF Scene](http://www.iquilezles.org/www/material/nvscene2008/rwwtt.pdf)
+## Explanation
+- For the model, I utilized many sphere, ellipsoid, round cone, and capped cone SDFs. I also used a plane SDF with displacement for the background hills. The horse's SDFs are all smooth min'd together, and many of the parts are reused and translated by an offset (notably the legs but also the ears, and chest and hindquarters). I used a velvet surface shader (link in helpful resources section) to make the horse look soft/fuzzy.
+- There are three lights in the scene: one from the front that casts the main soft shadows, one from the back that casts a weaker "global illumination" light, and one from the top that casts a mild sunset sky light.
+- The horse uses a velvet surface reflection model and the hills use a lambert refleciton model. The hills are multicolored to represent different materials depending on its depth of displacement.
+- For optimization, I used a bounding sphere for rendering the horse and the platform it stands on. I used a bounding limit to the z value of the queryPos in order to better and more quickly render the displaced plane in the background (before it had weird warped results and it was really slow).
+- For the animation, I animated the background (rolling hills). Time and space are both displaced by sin and cos functions, and the rate at which the time is displaced is further modified with a quadratic easing function. The color is also modified according to this displacement function. To mimic the multicolored hills in the artwork I made the valleys yellow/white and the tops red/blue. 
 
+## Reference art
+Blue Horse I by Franz Marc
 
-## Submission
-Commit and push to Github, then make a pull request on the hw03 repository with a title containing your name, and a comment containing a link to your live demo.
+(https://en.wikipedia.org/wiki/Blue_Horse_I)
+![](blue_horse_franz_marc_ref.jpeg)
 
-## Inspiration
-- [Alien Corridor](https://www.shadertoy.com/view/4slyRs)
-- [The Evolution of Motion](https://www.shadertoy.com/view/XlfGzH)
-- [Fractal Land](https://www.shadertoy.com/view/XsBXWt)
-- [Voxel Edges](https://www.shadertoy.com/view/4dfGzs)
-- [Snail](https://www.shadertoy.com/view/ld3Gz2)
-- [Cubescape](https://www.shadertoy.com/view/Msl3Rr)
-- [Journey Tribute](https://www.shadertoy.com/view/ldlcRf)
-- [Stormy Landscape](https://www.shadertoy.com/view/4ts3z2)
-- [Generators](https://www.shadertoy.com/view/Xtf3Rn)
+## Helpful resources
+- IQ's SDF functions: https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
+- IQ's shadertoy, Mike: https://www.shadertoy.com/view/MsXGWr
+- IQ's soft shadows: https://www.iquilezles.org/www/articles/rmshadows/rmshadows.htm
+- Velvet surface shader: https://www.indigorenderer.com/forum/viewtopic.php?t=6800

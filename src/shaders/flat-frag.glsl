@@ -201,7 +201,7 @@ float people(vec3 pos, float size)
 }
 
 // SCENE //
-#define FLOOR plane(queryPos, 0.0)
+#define FLOOR plane(queryPos, -2.5)
 #define BODY tower(queryPos + vec3(0.0, 0.2, 0.0))
 #define THING min(people(queryPos + vec3(-1.3, 0.0, 1.2), 3.0), min(people(queryPos + vec3(2.0, 0.0, -2.4), 2.0), people(queryPos + vec3(-1.5, 0.0, -1.5), 4.0)))
 
@@ -302,6 +302,7 @@ Intersection getRaymarchedIntersection(vec2 uv)
 }
 
 float softShadow(vec3 origin, vec3 dir, float min_t, float max_t, float k) {
+    float res = 1.0;
     for(float t = min_t; t < max_t;) 
     {
         float h = sceneSDF(origin + t * dir);
@@ -312,7 +313,7 @@ float softShadow(vec3 origin, vec3 dir, float min_t, float max_t, float k) {
         res = min(res, k * h / t );
         t += h;
     }
-    return 1.0;
+    return res;
 }
 
 vec3 calculateMaterial(int material_id, vec3 normal, vec3 lightDir, vec3 viewDir)
@@ -347,7 +348,7 @@ vec3 getSceneColor(vec2 uv, vec3 lightPos)
   vec3 lightDir = normalize(lightPos - intersection.position);
   vec3 light_t = (lightPos - intersection.position) / lightDir;
   vec3 viewDir = normalize(u_Ref - u_Eye);
-  float softShadow = softShadow(intersection.position, lightDir, 0.1, light_t.x, 8.0);
+  float softShadow = softShadow(intersection.position, lightDir, 0.1, light_t.x, 12.0);
   vec3 col = calculateMaterial(intersection.material_id, intersection.normal, lightDir, viewDir);
   return col * softShadow;
 }

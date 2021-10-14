@@ -2,7 +2,7 @@
 
 Eddie Huang (huanged)
 
-Live Demo: 
+Live Demo: https://eddieh80.github.io/hw03-advanced-raymarching/
 
 Screenshots:
 

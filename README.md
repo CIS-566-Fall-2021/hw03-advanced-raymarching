@@ -1,8 +1,17 @@
 # CIS 566 Homework 3: Implicit Surfaces
 
+- Author: Ashley Alexander-Lee
+- PennKey: asalexan
+- [Live Demo](https://asalexan.github.io/hw03-advanced-raymarching/)
+
+
 ![Header](images/hw3_header1.gif)
 
 In this project, I aimed to create a raymarched scene, replicating a screenshot from Sky: Children of Light by thatgamecompany.
+
+| Reference | Replication |
+| --------- | ----------- |
+| ![Reference](images/sky_ref2.png) | ![Comparison](images/compare2.png) |
 
 Demo / Installation
 ===================
@@ -28,6 +37,9 @@ I added some additional elements for this iteration of the project:
 - **Candle SDF** - I added candles to the scene by creating a candleSDF, which is composed of a cylindrical base and a smoothblended flame. Much like the trees, I created a Candle struct that holds information like: position, height, radius, light radius, and whether the candle is off or on. I color the flame using the "Transparency Technique" I describe in the next section.
 - **Mushroom SDF** - The mushroomSDF defines the signed distance field for the sake of sphere marching, *not* for material matching. The color of the magical mushroom is determined by my transparency trick, described later. I add sparkles as a post-processing effect, and I set a flag, isMushroom, to determine whether the post-process effect is applied to a particular location. The sparkle size is randomized according to the nearest Worley cell center.
 - **Branch SDF** - I added a few angular branches to match the reference,and the branchSDF is composed of a smoothblended cylinder for the base and cone for the branch.
+- **Soft Shadows** - I implemented penumbra shadows, but was not happy with the aesthetic effect. Here is a screenshot of the result:
+
+![Shadows](images/shadows2.png)
 
 Transparency Technique
 ======================

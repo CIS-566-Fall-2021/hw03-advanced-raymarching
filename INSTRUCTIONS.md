@@ -1,7 +1,7 @@
-Name: Effie Li/
-Pennkey:effieli/
-Citation: https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm /
-Link:   https://effieyanfei.github.io/hw03-advanced-raymarching/ /
+Name: Effie Li  
+Pennkey:effieli  
+Citation: https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm   
+Link:   https://effieyanfei.github.io/hw03-advanced-raymarching/  
 
 ![catColored](catColored.JPG)
 ![capture](capture.JPG)

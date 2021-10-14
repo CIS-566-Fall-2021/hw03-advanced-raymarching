@@ -10,6 +10,9 @@ I am using a lambert shader for most of the material but applied some specular h
 
 The scene has a 3 point light system with the main key light in the top right of the scene with a yellow tint. The fill light is on the left side of the scene and is more a blue tint to fill in the shadows. The third rim light is more toward the back of the scene in order to add more ambient light. 
 
+Link:
+https://emmaholthouser16.github.io/hw03-advanced-raymarching/
+
 Reference Image
 -----------
 ![](images/bridge.jpeg)

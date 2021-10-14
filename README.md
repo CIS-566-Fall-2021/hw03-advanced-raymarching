@@ -6,6 +6,8 @@ PennKey: jakelem
 
 Live demo: https://jakelem.github.io/hw03-advanced-raymarching/
 
+For my project, I modeled Bjork from her 1997 album cover Homogenic.
+
 <p align="center">
 <img src="images/bjork1.png" alt="drawing" width="350"/>
 </p>
@@ -24,7 +26,7 @@ My reference images are below:
 <p align= "center">
 
 ## Techniques used
-- __SDF Modeling__: I used various signed distance functions with smooth union, intersection, and difference functions to create the base model. I used the absolute value of the query point's x value to model symmetric features such as the eyes and hair, as well as the onion operation outlined by IQ to model hollow shapes like the sleeves. I also utilized domain distortion and displacement to model folds in clothes. Finally, I used a quadratic domain distortion to model the lips.
+- __SDF Modeling__: I used various signed distance functions with smooth union, intersection, and difference functions to create the base model. I used the absolute value of the query point's x value to model symmetric features such as the eyes and hair, as well as the onion operation outlined by IQ to model hollow shapes like the sleeves. I also utilized domain distortion and displacement to model folds in clothes. Finally, I used a quadratic displacement on a box to model the lips.
 
 - __Procedural Materials__: I created different materials for the skin, hair, blue textured cloth, red textured cloth, eyes, and gold rings around the neck. Each of these materials vary in albedo, diffuse contribution, specularity, and cosine power. I assigned albedo for the face by assigning specific points for regions such as the cheeks, and then and mixing colors based on the falloff distance from these points. I created more detailed albedo textures for the other materials, described directly below.
 

@@ -13,7 +13,7 @@
 
 - Truchet Tiling generated scene:
 I was thinking about generating the scene procedurally instead of manually put them together.
-![Insipiration](gear.jpg)
+![Insipiration](gears.jpg)
 I found [Truchet tiles](https://en.wikipedia.org/wiki/Truchet_tiles) interesting and implement a cubic pattern consisting of two kinds of tile as below.(Geometry outside the wireframe is not in the tile. Half gears enables the connectivity since teeth could overlap same area at boundary.)
 ![two_cubic_gear_tiles](showtile.gif)
 The gears are not symmetric along all axes so I have to manually calculate how to flip them. Thus I divide the world into 1x1x1 grids and use two checkerboard-like parameter:

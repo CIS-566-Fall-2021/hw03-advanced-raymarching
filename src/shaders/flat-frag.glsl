@@ -3,6 +3,8 @@ precision highp float;
 const float TO_RADIANS = 3.1415 / 180.0;
 const int RAY_STEPS = 256;
 const vec3 LIGHT_POS = vec3(0., 6., -3.);
+const vec3 LIGHT_POS_2 = vec3(-3., 6., -3.);
+const vec3 LIGHT_POS_3 = vec3(0., 7., -10.);
 
 uniform vec3 u_Eye, u_Ref, u_Up;
 uniform vec2 u_Dimensions;
@@ -259,10 +261,19 @@ float shadow(vec3 dir, vec3 origin, float min_t, float k) {
     return res;
 }
 
-
-vec3 lambertian(int hitObj, vec3 p, vec3 n, vec3 lightDir)
+// calculate color for different materials
+vec3 reflection(int hitObj, vec3 p, vec3 n, vec3 lightDir, vec3 view, bool effect_on)
 {
-    float cosine = dot(-lightDir, n);
+    // diffuse term
+    float cosine = clamp(dot(-lightDir, n), 0.0, 1.0);
+    // ambient term
+    float ambientTerm = 0.2;
+    // specular term
+    vec3 halfVec = normalize(view + lightDir);  
+    float NoH = clamp(dot(n, halfVec), 0.0, 1.0);
+    vec3 SpecularColor = vec3(1.0, 1.0, 1.0);
+    vec3 specularTerm = vec3(pow(NoH, 16.0)) * SpecularColor;
+    // basic lambert shading
     switch(hitObj){
         case LEFT_PUPIL_ID:
         return vec3(0., 0., 0.) * cosine;
@@ -273,14 +284,16 @@ vec3 lambertian(int hitObj, vec3 p, vec3 n, vec3 lightDir)
         case BACK_WALL_ID:
         return vec3(1., 0.7411765, 0.) * cosine;
         break;
+        // soft shadow
         case BOTTOM_STAND_ID:
         return rgb(234., 96., 218.) * cosine * shadow(-lightDir, p, 0.1, 10.0);
         break;
         case FACE_PART_ID:
         return rgb(249., 203., 250.) * cosine;
         break;
+        // Blinn-Phong Shading
         case BODY_N_LARM_ID:
-        return rgb(49., 131., 249.) * cosine;
+        return effect_on ? ((rgb(49., 131., 249.) + specularTerm) * (cosine + ambientTerm)) : (rgb(49., 131., 249.) * (cosine + ambientTerm));
         break;
         case RIGHT_ARM_PART_ID:
         return vec3(1., 1., 1.) * cosine;
@@ -316,7 +329,12 @@ Intersection sdf(vec3 dir, vec3 eye)
     vec3 intersection = eye + t * dir;
     vec3 normal = computeNormal(intersection);
     vec3 lightDir = normalize(intersection - LIGHT_POS);
-    vec3 color = lambertian(objectID, intersection, normal, lightDir);
+    vec3 color = reflection(objectID, intersection, normal, lightDir, normalize(u_Eye - intersection), true);
+    // calculate extra light source
+    vec3 lightDir_two = normalize(intersection - LIGHT_POS_2);
+    color = max(color, reflection(objectID, intersection, normal, lightDir_two, normalize(u_Eye - intersection), true));
+    vec3 lightDir_three = normalize(intersection - LIGHT_POS_3);
+    color = max(color, reflection(objectID, intersection, normal, lightDir_three, normalize(u_Eye - intersection), false));
     return Intersection(t, color, intersection, objectID);
 }
 

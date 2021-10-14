@@ -1,5 +1,24 @@
 # CIS 566 Homework 3: Advanced Raymarched Scenes
 
+Eddie Huang (huanged)
+
+Screenshots:
+
+![](Picture1.png)
+
+![](Picture2.png)
+
+Reference:
+
+![](Reference.png)
+
+External Sources:
+
+https://www.shadertoy.com/view/ssdSR2
+https://www.shadertoy.com/view/7stSW7
+https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
+
+
 ## Objective
 - Gain experience with signed distance functions
 - Experiment with animation curves

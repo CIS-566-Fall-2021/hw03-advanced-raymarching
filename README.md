@@ -28,7 +28,7 @@ Then SDF is calculated by checker*second_checker* modular result of p.
 - 1)Ambient occulusion for GI(see ```ambientOcclusion()```)
 - 2)Directional Light 1 at ```(-4.*sin(0.01*u_Time),2.+sin(0.008*u_Time),3.*sin(0.01*u_Time) ```
 - 3)Directional Light 2 at ```-3.*sin(0.01*u_Time), 4.+cos(0.01*u_Time), -2.*cos(0.009*u_Time)``` *** Softshadow is casted under this light.
-![](softshdow.gif)
+![](softshadow.gif)
 
 ### Material: 
 ```struct Material {

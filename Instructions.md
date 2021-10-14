@@ -27,8 +27,9 @@ Fun Bloopers
 -----------
 
 ![](images/blooper1.png)
+wooden rock
 
-![](images/BridgeSphereBlooper.png)
+![](images/BrickSphereBlooper.png)
 
 
 

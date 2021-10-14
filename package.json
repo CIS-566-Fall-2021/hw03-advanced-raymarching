@@ -4,6 +4,8 @@
     "build": "webpack"
   },
   "devDependencies": {
+    "@types/dat-gui": "^0.6.3",
+    "@types/stats": "^0.16.30",
     "@types/webgl2": "0.0.6",
     "copy-webpack-plugin": "^9.0.1",
     "ts-loader": "^9.2.5",
@@ -15,6 +17,8 @@
   },
   "dependencies": {
     "3d-view-controls": "^2.2.2",
-    "gl-matrix": "^3.3.0"
+    "dat-gui": "^0.5.0",
+    "gl-matrix": "^3.3.0",
+    "stats-js": "^1.0.1"
   }
 }

@@ -33,6 +33,13 @@ struct Surface {
   vec3 color;
 };
 
+Surface createSurface() {
+  Surface surf;
+  surf.distance = 9999999.f;
+  surf.color = vec3(0.f, 0.f, 0.f);
+  return surf;
+}
+
 Surface mins(Surface a, Surface b) {
   if (a.distance < b.distance) {
     return a;
@@ -123,7 +130,7 @@ float sdfBox( vec3 p, vec3 b ) {
   return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
-Surface sdfIvoryKey(vec3 p) {
+Surface sdfEbonyKey(vec3 p) {
   Surface s;
   s.distance = sdfBox(p, vec3(0.05, 0.45, 0.18) / keyScale);
   s.color = vec3(0.09f, 0.09f, 0.09f);
@@ -133,7 +140,6 @@ Surface sdfIvoryKey(vec3 p) {
 Surface sdfEBKey(vec3 p) {
   Surface s;
   vec3 pt = p + ebCut;
-  //return max(-sdfBox(pt, ebCutB), sdfBox(p, whiteKeyBox));
   float d1 = -sdfBox(pt, ebCutB);
   float d2 = sdfBox(p, whiteKeyBox);
   s.distance = d1 > d2 ? d1 : d2;
@@ -142,18 +148,18 @@ Surface sdfEBKey(vec3 p) {
 }
 
 Surface sdfCFKey(vec3 p) {
-  return sdfEBKey(p - vec3(p.x * 2.f, 0.f, 0.f));
+  return sdfEBKey(p - vec3(p.x * 2.f - whiteKeyBox.x, 0.f, 0.f));
 }
 
 float expImpulse(float x, float k) {
-    float h = k*x;
-    return h*exp(1.0-h);
+    float h = k * x;
+    return h * exp(1.0 - h);
 }
 
 Surface sdfDKey(vec3 p) {
   Surface s;
   float mod = (1. + cos(u_Time / 4.f)) / 25.f;
-  p.z -= expImpulse(mod, 1.f/25.f) * 4.5f;
+  p.z -= expImpulse(mod, 1.f / 25.f) * 4.5f;
   vec3 pt = p + vec3(0.085, -0.27f, 0.f) / keyScale;
   float leftBox = sdfBox(pt, vec3(0.02, 0.45, 0.121) / keyScale);
   pt = p + vec3(-0.089, -0.27f, 0.f) / keyScale;
@@ -193,35 +199,49 @@ Surface sdfMusicStand(vec3 p) {
   return s;
 }
 
-//const vec3 keyStep = vec3(0.2f + keyPadding, 0.f, 0.f) / keyScale;
-Surface sdfOctave(vec3 p, out vec3 p2) {
-  vec3 ip = p - vec3(0.08, 0.28, -0.063) / keyScale;
-  Surface c = sdfCFKey(p);
-  p -= keyStep;
-  Surface cs = sdfIvoryKey(ip);
-  ip.x -= 0.255 / keyScale;
+// For center-positioned objects
+vec3 repeatX(vec3 p, float period, float l, float u) {
+  vec3 p2 = p;
+  p2.x = p.x - period * clamp(round(p.x / period), l, u);
+  return p2;
+}
+
+// For top-left-near positioned objects
+vec3 repeatX2(vec3 p, float period, float l, float u) {
+  vec3 p2 = p;
+  p2.x = p.x - period * clamp(floor(p.x / period), l, u);
+  return p2;
+}
+
+Surface sdfOctave2(vec3 p) {
+  vec3 ip = p - vec3(0.18, 0.28, -0.063) / keyScale;
+
+  // Ivory Keys
+  vec3 q = repeatX(p, keyStep.x * 3.f, 0.f, 1.f);
+  Surface cf = sdfCFKey(q);
+  p -= keyStep + vec3(0.04f, 0.f,0.f);
   Surface d = sdfDKey(p);
   p -= keyStep;
-  Surface ds = sdfIvoryKey(ip);
-  ip.x -= 0.38 / keyScale;
-  Surface e = sdfEBKey(p);
-  p -= keyStep;
-  Surface f = sdfCFKey(p);
-  p -= keyStep;
-  Surface fs = sdfIvoryKey(ip);
-  ip.x -= 0.24 / keyScale;
+  q = repeatX(p, keyStep.x * 4.f, 0.f, 1.f);
+  Surface eb = sdfEBKey(q);
+  p -= 2.f * keyStep;
   Surface g = sdfGKey(p);
   p -= keyStep;
-  Surface gs = sdfIvoryKey(ip);
-  ip.x -= 0.23 / keyScale;
   Surface a = sdfAKey(p);
-  p -= keyStep;
-  Surface as = sdfIvoryKey(ip);
-  Surface b = sdfEBKey(p);
-  p -= keyStep;
-  p2 = p;
-  return mins(b, mins(mins(as, a), mins(mins(gs, g), mins(mins(fs, f), mins(e, mins(mins(ds, d), mins(cs, c)))))));
-  //return e;
+
+  // Ebony Keys
+  q = repeatX(ip, 0.255 / keyScale, 0.f, 1.f);
+  Surface csds = sdfEbonyKey(q);
+  ip.x -= (0.38 + 0.255) / keyScale;
+  q = repeatX(ip, 0.24 / keyScale, 0.f, 2.f);
+  Surface fsgsas = sdfEbonyKey(q);
+  return mins(fsgsas, mins(csds, mins(a, mins(g, mins(eb, mins(cf, d))))));
+}
+
+
+Surface sdfKeys2(vec3 p, int octaves) {
+  vec3 q = repeatX2(p, keyStep.x * 7.f, 0.f, float(octaves));
+  return sdfOctave2(q);
 }
 
 Surface sdfFrame(vec3 p) {
@@ -233,57 +253,31 @@ Surface sdfFrame(vec3 p) {
   float top = sdfRoundBox(p + vec3(0.f, 0.f, 1.5f), vec3(7.1f, 2.1f, 0.1f) / 4.f, 0.01);
   float bottom = 
     sdfBox(p + vec3(0.f, 1.f, -0.1f), vec3(1.7f, 0.3f, 0.1f));
-  s.distance = min(sdfBox(p + vec3(0.f, mainB.y + sideB.y - frontB.y * 3.f, 0.f), frontB), 
-  smin(
-    sdfRoundBox(p - flipX(mainB) + flipX(sideB), sideB, 0.01), 
-    smin(sdfRoundBox(p - mainB + sideB, sideB, 0.01), sdfBox(p, mainB), 0.1), 0.1));
+  s.distance = min(
+    sdfBox(p + vec3(0.f, mainB.y + sideB.y - frontB.y * 3.f, 0.f), frontB), 
+    smin(
+      sdfRoundBox(p - flipX(mainB) + flipX(sideB), sideB, 0.01), 
+      smin(sdfRoundBox(p - mainB + sideB, sideB, 0.01), sdfBox(p, mainB), 0.1), 0.1));
 
     s.distance = smin(top, s.distance, 0.1);
     s.distance = min(s.distance, bottom);
     return s;
 }
 
-Surface sdfKeys(vec3 p, int octaves) {
-  Surface v;
-  v.distance =  999999.f;
-  vec3 p2 = p;
-  for (int i = 0; i < octaves; i++) {
-    v = mins(v, sdfOctave(p2, p2));
-  }
-
-  return v;
-}
-
-Surface sceneSDF(vec3 queryPos) {
-  float box = sdfBox(queryPos + vec3(0.f, 1.f, 0.2f), vec3(1.7f, 0.3f, 0.6f));
+Surface sdfPiano(vec3 p) {
+  float box = sdfBox(p + vec3(0.f, 1.f, 0.2f), vec3(1.7f, 0.3f, 0.6f));
   Surface keys;
   keys.distance = 999999.f;
   if (box < EPSILON) {
-    keys = sdfKeys(queryPos + vec3(1.6f, 0.95f, 0.2f), 6);
+    keys = sdfKeys2(p + vec3(1.63f, 0.95f, 0.2f), 6);
   }
 
-  // Surface boxs;
-  // boxs.distance = box;
-  // boxs.color = vec3(0.f, 0.f, 1.f);
-
-  // vec3 q2 = rotateAround(
-  //       queryPos,
-  //       vec3(0.0, 0.1f,0.1f),
-  //       0.5f);
-
-  // return sdfBox(
-  //   q2, 
-  //   vec3(0.5f, 0.5f, 0.5f));
-
-  //return sdfOctave(queryPos);
-  vec3 p;
-  Surface o1 = sdfFrame(queryPos);//sdfOctave(queryPos, p);
-  //float o2 = sdfOctave(p, p);
-  //return min(o1, o2);
-  return mins(sdfMusicStand(queryPos), mins(keys, o1));
+  return mins(sdfMusicStand(p), mins(keys, sdfFrame(p)));
 }
 
-// Linf Norm SDFs
+Surface sceneSDF(vec3 p) {
+  return sdfPiano(p - vec3(0.f,1.f,0.f));
+}
 
 const float d = 0.001f;
 vec3 sceneSDFGrad(vec3 queryPos) {
@@ -322,24 +316,9 @@ Intersection getRaymarchedIntersection(vec2 uv)
   Ray ray = getRay(uv);
 
   float distance_t = 0.f;
-  float prevDist = 99999.f;
-  // if (uv.x < 0.5f || uv.y < 0.5f) {
-  //   return intersection;
-  // }
-
   for (int step = 0; step < MAX_RAY_STEPS; step++) {
     vec3 point = ray.origin + ray.direction * distance_t;
     Surface s = sceneSDF(point);
-    // if (point.y > 5.f || point.z > 5.f) {
-    //   break;
-    // }
-    // if (isinf(point.x) || isinf(point.y) || isinf(point.z)) {
-    //   break;
-    // }
-
-    // if (dist > prevDist) {
-    //   break;
-    // }
 
     if (s.distance < EPSILON) {
       intersection.distance_t = s.distance;
@@ -363,14 +342,6 @@ Intersection getRaymarchedIntersection(vec2 uv)
 const vec3 light = vec3(10.f, 14.f, 3.f);
 vec3 getSceneColor(vec2 uv) {
   Intersection intersection = getRaymarchedIntersection(uv);
-  // if (uv.x > 0.3f && uv.y < -0.3f) {
-  //   if (abs(intersection.distance_t) < EPSILON) {
-  //     if (isinf(intersection.position.x)) {
-  //       return vec3(1.f, 0.f, 0.f);
-  //     }
-  //   }
-  //   return vec3(0.f, 0.f, 1.f);
-  // }
 
   if (abs(intersection.distance_t) < EPSILON)
   {
@@ -384,16 +355,9 @@ vec3 getSceneColor(vec2 uv) {
 }
 
 void main() {
-  // downsample resolution
-  // vec2 target = u_Dimensions / 2.f;
-  // vec2 scaled = (fs_Pos + vec2(1.f, 1.f)) / 2.f;
-  // vec2 uv = vec2(floor(target.x * scaled.x), floor(target.y * scaled.y));
-  // uv.x /= target.x;
-  // uv.y /= target.y;
-  // uv = uv * 2.f - vec2(1.f, 1.f);
   // Time varying pixel color
   vec3 col = getSceneColor(fs_Pos);
 
   // Output to screen
-  out_Col = vec4(col, 1.0);//vec4(0.5 * (fs_Pos + vec2(1.0)), 0.5 * (sin(u_Time * 3.14159 * 0.01) + 1.0), 1.0);
+  out_Col = vec4(col, 1.0);
 }

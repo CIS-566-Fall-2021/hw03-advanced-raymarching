@@ -34,7 +34,7 @@ struct DirectionalLight
 // #define waterBlue vec3(69.f / 255.f ,88.f / 255.f ,102.f / 255.f)
 #define waterBlue vec3(0.15f, 0.22f, .58)
 #define cityCol vec3(.566, .341, .678)
-#define rockCol vec3(.40, .24, .32)
+#define rockCol vec3(.30, .14, .22)
 #define mainLightColor vec3(.8, .8, .5)
 // Want sunlight to be brighter than 100% to emulate
 // High Dynamic Range
@@ -52,7 +52,7 @@ struct DirectionalLight
 #define SHADOW_HARDNESS 10.0
 #define RAY_LENGTH 52.f
 #define box1 sdBox(pos, vec3(-1.f, 0.f, 5.f), rotateY(30.f * RADIANS), vec3(2.5f, 4.f, 17.f))
-#define box2 sdBox(pos, vec3(0.f), identity(), vec3(1.f))
+#define box2 sdBox(pos, vec3(-1.f, -1.f, 5.f), rotateY(30.f * RADIANS), vec3(2.5, 2.f, 15.f))
 #define groundPlane sdHeightField(pos, 2.f, vec3(0.f, -8.0, 1.0), rotateX(-7.0 * (3.14158 / 180.0)))
 #define islandPlane sdBox(vec3(pos.x, pos.y + WorleyNoise(pos / 10.5), pos.z), vec3(-10.f, -.50f, -45.f),  rotateZ(-1.f * RADIANS) * rotateX(-15.f *  RADIANS) * rotateY(10.f * RADIANS),  vec3(45.f, .008f, 10.0f))
 #define road sdRoad(pos, vec3(-1.f, 0.f, 3.f), rotateY(30.f * RADIANS))
@@ -299,19 +299,13 @@ float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
 
 float sdPlane( vec3 p, vec3 n, float h, vec3 offset, mat3 transform)
 {
-  // n must be normalized
- // if(p.z < -1.f)
- // {
+
      float hPlus = fbm(p, 3.f);
      p.y += hPlus + 5.f;
      //h *= hPlus;
      p = (p - offset) *transform;
      return dot(p,n) + h;
- // }
- // else
- // {
-   // return 10.f;
- // }
+
  
 }
 //cylinder
@@ -363,7 +357,6 @@ float extraCable(vec3 p)
   vec3  newP2 = (p - vec3(-3.4f, 9.5f, 7.9f)) * rotateY(120.f * RADIANS) * rotateZ(180.f * RADIANS) * (1.f /  vec3(1.f, 1.2f, 1.f));
   float cable2 = sdCappedTorus(newP2, c, 8.f, .01);
   
-  //cable = min(cable, subtractSphere);
   return min(cable, cable2);
 }
 float sdCables(vec3 p, vec3 offset, mat3 transform)
@@ -376,15 +369,12 @@ float sdCables(vec3 p, vec3 offset, mat3 transform)
     float topCable = sdCappedTorus(p, c, 13.f,.03f);
     topCable = smin(topCable, sdVerticalCables(p, vec3(-1.f, 10.f, 0.f), identity()), .08);
     topCable = smin(topCable, sdVerticalCables(p, vec3(-1.f, 10.f, .5f), identity()), .08);
-    vec3 newpP= p * (1.f / vec3(1.42f, 1.05f, 1.f));
+    vec3 newpP= p * (1.f / vec3(1.62f, 1.05f, 1.12f));
     //float subtractSphere = sdfSphere(p, vec3(0.f, 6.6f, 0.f), 6.f);
-    newP = newP - vec3(0.f, 3.0f, 0.f);
-    float subtractSphere = sdCappedTorus(newP, c, 8.f, 2.);
-    float subtractSphere2 = sdCappedTorus((newP - vec3(-14.5f, 1.4f, -1.f)), c, 6.f, 2.f);
-    //float subtractSphere2 = sdfSphere(p, vec3(-7.8f, 10.1f, 0.5f), 1.6f);
-    //float subtractSphere2 = sdfSphere((p + vec3(), vec3(0.f, 6.6f, 0.f), 6.f);
-   // topCable = min(subtractSphere, topCable);
-   // topCable = min(subtractSphere2, topCable);
+    newP = newP - vec3(-0.5f, 2.5f, .9f);
+    float subtractSphere = sdCappedTorus(newP, c, 8.3f, 2.);
+    float subtractSphere2 = sdCappedTorus((newP - vec3(-14.5f, 1.7f, -1.f)), c, 6.f, 2.f);
+ 
     topCable = opSmoothSubtraction(subtractSphere, topCable, .25);
     topCable = opSmoothSubtraction(subtractSphere2, topCable, .25);
     topCable = min(topCable, sdCappedTorus((p - vec3(0.f, 0.f, .5f)), c, 13.f, .03f));
@@ -404,14 +394,14 @@ float sdHeightField(vec3 pos, float planeHeight, vec3 offset, mat3 transform)
   float w = perlinNoise3D(pos / 5.5);
 
   
-  return mix(pos.y, pos.y + (w * .45), cos(u_Time * .01));
+  return mix(pos.y, pos.y + (w * .25), cos(u_Time * .01));
 
 }
 float rock(vec3 pos, vec3 offset, mat3 transform)
 {
    pos = (pos - offset) *transform * (1.f /  vec3(1.0f, 1.f, 1.f));
    
-   float w = fbm(pos.yzz * 2.f, 4.0) * .02;
+   float w = fbm(pos.yzz * 2.f, 4.0) * .2;
    //pos += w;
    float rock = sdfSphere(pos,  vec3(-1.7f, -2.6f, 6.5f), 2.f);
    rock += w;
@@ -504,7 +494,11 @@ float sceneSDF(vec3 pos)
    }
 
   t = min(t, road);
-  t = min(t, triangleBridge);
+  if(box2 < t)
+  {
+        t = min(t, triangleBridge);
+  }
+
   return t;
 }
 void sceneSDF(vec3 pos, out float t, out int obj, vec3 lightPos) 
@@ -520,12 +514,15 @@ void sceneSDF(vec3 pos, out float t, out int obj, vec3 lightPos)
           obj = 1;
         } 
     }
-   
-    if((t2 = triangleBridge) < t)
+   if(box2 < t)
+   {
+       if((t2 = triangleBridge) < t)
     {
       t = t2;
       obj = 1;
     }
+   }
+   
     if(pos.x < 1.f && pos.y < 2.f)
     {
         if((t2 = frontRocks) < t)
@@ -594,7 +591,7 @@ Ray getRay(vec2 uv)
 
 vec3 estimateNormal(vec3 p)
 {
-  vec2 d = vec2(0., .01);
+  vec2 d = vec2(0., .001);
   float x = sceneSDF(p + d.yxx) - sceneSDF(p - d.yxx);
   float y = sceneSDF(p + d.xyx) - sceneSDF(p - d.xyx);
   float z = sceneSDF(p + d.xxy) - sceneSDF(p - d.xxy);
@@ -697,7 +694,7 @@ vec4 getSceneColor(vec2 uv, vec3 lightPos)
     }
     else
     {
-      vec3 newsunColor = mix(vec3(.6, .2, .2), sunColor, smoothstep(0.f, .1, uv.y + .4));
+      vec3 newsunColor = mix(vec3(.258, .349, .090), sunColor, smoothstep(0.f, .1, uv.y + .4));
       return vec4(mix(newsunColor, vec3(skyColor), smoothstep(0.f, .4f, uv.y) + .5), 0.f);
     }
     
@@ -709,7 +706,6 @@ vec2 uv = fs_Pos;
 
   Ray r = getRay(fs_Pos);
 
-  //out_Col = vec4(0.5 * (r.direction + vec3(1.0, 1.0, 1.0)), 1.0);
   vec3 lightPos = vec3(5.0, 1.0, -1.0);
   vec3 indirectLight = vec3(-5.0, 1.0, -1.f);
   vec4 sceneColDist = getSceneColor(uv, lightPos);
@@ -721,5 +717,5 @@ vec2 uv = fs_Pos;
   col = mix(col, newsunColor, fogT);
   col = pow(col, vec3(1.1, 1.2, 1.1));
   out_Col = vec4(col, 1.f);
-  //out_Col = vec4(0.5 * (fs_Pos + vec2(1.0)), 0.5 * (sin(u_Time * 3.14159 * 0.01) + 1.0), 1.0);
+
 }

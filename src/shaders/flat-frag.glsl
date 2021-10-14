@@ -357,6 +357,7 @@ void findClosestObject(vec3 pos, out float t, out int obj, vec3 lightPos) {
     obj = CENTER_TRI;
     
     float t2;
+    // Bounding sphere to help with optimization
     float bounding_sphere_dist = sphere(pos, 50.0);
     if(bounding_sphere_dist <= 0.00001f) {
       if((t2 = SWORD_HOLDER_SDF) < t) {
@@ -503,7 +504,7 @@ vec3 computeNormal(vec3 pos, vec3 lightPos) {
 vec3 getSceneColor(int hitObj, vec3 p, vec3 n, vec3 light, vec3 view) {
     float lambert = dot(n, light) + 0.3;
     vec3 h = (view + light) / 2.0;
-    float shininess = 4.0;
+    float shininess = 8.0;
     vec3 specularColor = vec3(1.0);
     vec3 blinnPhong = max(pow(dot(h, n), shininess), 0.f) * specularColor;
     vec3 a, b, c, d;
@@ -521,7 +522,7 @@ vec3 getSceneColor(int hitObj, vec3 p, vec3 n, vec3 light, vec3 view) {
         b = vec3(-1.301, 0.3884, -0.041);
         c = vec3(0.1384, -0.141, -0.381);
         d = vec3(-1.581, 0.1784, -0.121);
-        return cosinePalette(a, b, c, d, fbm(p.x / 2.0, p.y / 2.0, p.z / 2.0).x) / 1.2 * lambert;
+        return cosinePalette(a, b, c, d, 2.0 * fbm(p.x / 2.0, p.y / 2.0, p.z / 2.0).x) / 1.2 * lambert;
         break;
         case FLOOR:
         a = vec3(0.3, 0.8, 0.1);
@@ -533,7 +534,8 @@ vec3 getSceneColor(int hitObj, vec3 p, vec3 n, vec3 light, vec3 view) {
         case SWORD_BLADE_BOTTOM:
         case SWORD_BLADE_TOP:
         case SWORD_QUAD:
-        return rgb(vec3(165.0, 240.0, 232.0)) * lambert + blinnPhong;
+        return rgb(vec3(180.0, 255.0, 247.0)) * lambert + blinnPhong;
+        //vec3(165.0, 240.0, 232.0)
         break;
         case SWORD_HILT:
         return vec3(0.1, 0.7, 0.7) * lambert;
@@ -548,7 +550,7 @@ vec3 getSceneColor(int hitObj, vec3 p, vec3 n, vec3 light, vec3 view) {
         return vec3(0.2, 0.2, 0.7) * lambert;
         break;
         case SWORD_GEM:
-        return vec3(0.7, 0.7, 0.1) * lambert + vec3(0.5) + blinnPhong;
+        return vec3(0.7, 0.7, 0.1) * lambert + blinnPhong;
         break;
     }
     // Background color
@@ -556,7 +558,7 @@ vec3 getSceneColor(int hitObj, vec3 p, vec3 n, vec3 light, vec3 view) {
     b = vec3(-1.301, 0.3884, -0.041);
     c = vec3(0.1384, -0.141, -0.381);
     d = vec3(-1.581, 0.1784, -0.121);
-    return cosinePalette(a, b, c, d, perlin(p * 5.0));
+    return cosinePalette(a, b, c, d, perlin(p * 5.0 * cos(u_Time / 50.f)));
 }
 
 Intersection getIntersection(vec3 dir, vec3 eye, vec3 lightPos) {
@@ -572,8 +574,16 @@ Intersection getIntersection(vec3 dir, vec3 eye, vec3 lightPos) {
     
     surfaceColor *= getSceneColor(hitObj, isect, nor, lightDir, normalize(isect - eye)) * softShadow(lightDir, isect, 0.1, 8.0, lightPos);
     // Fill light and global illumination
-    surfaceColor += max(0.0, dot(nor, SKY_FILL_LIGHT_DIR)) * vec3(1.2f) * SKY_FILL_LIGHT_COLOR;
-    surfaceColor += max(0.0, dot(nor, SUN_AMBIENT_LIGHT_DIR)) * vec3(0.1) * SUN_AMBIENT_LIGHT_COLOR;
+    if (hitObj == SWORD_BLADE_BOTTOM || hitObj == SWORD_BLADE_TOP || hitObj == SWORD_QUAD) {
+      surfaceColor += vec3(2.f) * SKY_FILL_LIGHT_COLOR;
+    } else {
+      surfaceColor += max(0.0, dot(nor, SKY_FILL_LIGHT_DIR)) * vec3(1.2f) * SKY_FILL_LIGHT_COLOR;
+    }
+    if (hitObj == SWORD_GEM) {
+      surfaceColor += max(0.0, dot(nor, SUN_AMBIENT_LIGHT_DIR)) * SUN_AMBIENT_LIGHT_COLOR;
+    } else {
+      surfaceColor += max(0.0, dot(nor, SUN_AMBIENT_LIGHT_DIR)) * vec3(0.1) * SUN_AMBIENT_LIGHT_COLOR;
+    }
     return Intersection(t, surfaceColor, isect, hitObj);
 }
 ////////// RAY MARCHING END //////////
@@ -582,9 +592,6 @@ Intersection getIntersection(vec3 dir, vec3 eye, vec3 lightPos) {
 void main() {
   Ray r = raycast(fs_Pos);
   Intersection i = getIntersection(r.direction, r.origin, LIGHT_POS);
-  // vec3 color = 0.5 * (r.direction + vec3(1.0, 1.0, 1.0));
-
-  // out_Col = vec4(0.5 * (fs_Pos + vec2(1.0)), 0.5 * (sin(u_Time * 3.14159 * 0.01) + 1.0), 1.0);
   out_Col = vec4(i.color, 1.0);
 }
 

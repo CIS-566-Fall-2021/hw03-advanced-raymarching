@@ -17,6 +17,9 @@ const int MAX_RAY_LENGTH = 75;
 const float FOV = 45.0;
 const float EPSILON = 1e-2;
 const float MAX_FLT = 1e10;
+const vec3 CAM_EYE = vec3(0.0, -0.55, 10.0);
+const vec3 CAM_REF = vec3(0.0);
+const vec3 CAM_UP = vec3(0.0, 1.0, 0.0);
 
 /* -------------- Material IDs ---------------- */
 #define GROUND_MAT_ID 0
@@ -124,7 +127,6 @@ struct Intersection {
     vec3 normal;
     float distance_t;
     int material_id;
-    int material_id2; // so that transparent objs know what's behind it
 };
 
 
@@ -646,8 +648,9 @@ float candleSDF(vec3 queryPt, Candle candle, out int candleMat) {
 
 float allCandlesSDF(vec3 queryPt, out int candleMat){
   float minSDF = MAX_FLT;
-
-  for (int i = 0; i < CANDLES.length(); i++){
+  //return sdBox(queryPt - vec3(2.0, 0.0, 0.0), vec3(2.0, 50.0, 2.0));
+  if (sdBox(queryPt - vec3(2.0, 0.0, 0.0), vec3(5.0, 30.0, 10.0)) <= EPSILON){
+    for (int i = 0; i < CANDLES.length(); i++){
     float candleSDF = candleSDF(queryPt, CANDLES[i], candleMat);
     if (CANDLES[i].isOn && candleMat == CANDLE_FLAME_ID && candleSDF <= EPSILON) {
       isFlame = true;
@@ -661,22 +664,17 @@ float allCandlesSDF(vec3 queryPt, out int candleMat){
  
   candleMat = CANDLE_MAT_ID;
   return minSDF;
+  }
+  return MAX_FLT;
 }
 
-float sceneSDF(vec3 queryPt, out int material_id, out int material_id2, out bool terminateRaymarch, out bool isMagic, out bool isMushroom) {
+float sceneSDF(vec3 queryPt, out int material_id, out bool isMagic, out bool isMushroom) {
     bool isPath;
-    terminateRaymarch = false;
     isMagic = false;
 
     float minSDF = getTerrainHeight(queryPt.xz, isPath, queryPt.y);
     minSDF = smin(minSDF, raisedGroundSDF(queryPt, 240.0, -3.0), 0.9);
     material_id = isPath ? PATH_MAT_ID : GROUND_MAT_ID;
-
-    // if pt - terrainHeight is negative, pt is under land, terminate early
-    /*if (minSDF < 0.0){
-      terminateRaymarch = true;
-      return -1.0;
-    }*/
 
     float forestSDF = forestSDF(queryPt);
     if (forestSDF < minSDF){
@@ -702,26 +700,30 @@ float sceneSDF(vec3 queryPt, out int material_id, out int material_id2, out bool
     float magicMushroomSDF2 = mushroomSDF(queryPt, vec3(-2.5, 0.3, -2.7), 1.0);
     float magicMushroomSDF3 = mushroomSDF(queryPt, vec3(-3.5, 1.5, -2.7), 1.0);
 
-    if (magicMushroomSDF < EPSILON*10.0 || magicMushroomSDF2 < EPSILON*10.f || magicMushroomSDF3 < EPSILON*10.f){
+   // return min(minSDF, sdBox(queryPt - vec3(-5.0, 0.0, -5.0), vec3(3.0, 10.0, 10.0)));
+    if (sdBox(queryPt - vec3(-5.0, 0.0, -4.0), vec3(3.0, 10.0, 10.0)) <= EPSILON){
+      if (magicMushroomSDF < EPSILON*10.0 || magicMushroomSDF2 < EPSILON*10.f || magicMushroomSDF3 < EPSILON*10.f){
         isMagic = true;
       }
 
-    if (magicMushroomSDF <= EPSILON || magicMushroomSDF2 <= EPSILON || magicMushroomSDF3 <= EPSILON){
-      isMushroom = true;
-      if (magicMushroomSDF <= EPSILON && mushDist == 0.0){
-        mushDist = length(queryPt -vec3(-3.6, 0.4, 3.8));
-      }
-      else if (magicMushroomSDF2 <= EPSILON && mushDist == 0.0){
-        mushDist = length(queryPt - vec3(-2.5, 0.3, -2.7));
-      }
-      else if (magicMushroomSDF3 <= EPSILON && mushDist == 0.0){
-        mushDist = length(queryPt - vec3(-3.5, 1.5, -2.7));
-      }
+      if (magicMushroomSDF <= EPSILON || magicMushroomSDF2 <= EPSILON || magicMushroomSDF3 <= EPSILON){
+        isMushroom = true;
+        if (magicMushroomSDF <= EPSILON && mushDist == 0.0){
+          mushDist = length(queryPt -vec3(-3.6, 0.4, 3.8));
+        }
+        else if (magicMushroomSDF2 <= EPSILON && mushDist == 0.0){
+          mushDist = length(queryPt - vec3(-2.5, 0.3, -2.7));
+        }
+        else if (magicMushroomSDF3 <= EPSILON && mushDist == 0.0){
+          mushDist = length(queryPt - vec3(-3.5, 1.5, -2.7));
+        }
       
+      }
+      else if (magicMushroomSDF < minSDF || magicMushroomSDF2 < minSDF || magicMushroomSDF3 < minSDF){
+        minSDF = min(min(magicMushroomSDF, magicMushroomSDF2), magicMushroomSDF3);
+      }
     }
-    else if (magicMushroomSDF < minSDF || magicMushroomSDF2 < minSDF || magicMushroomSDF3 < minSDF){
-      minSDF = min(min(magicMushroomSDF, magicMushroomSDF2), magicMushroomSDF3);
-    }
+    
 
     return minSDF;   
 }
@@ -732,7 +734,6 @@ float sceneSDF(vec3 queryPt) {
     float minSDF = getTerrainHeight(queryPt.xz, isPath, queryPt.y);
     minSDF = smin(minSDF, raisedGroundSDF(queryPt, 240.0, -3.0), 0.9);
     minSDF = min(minSDF, templeSDF(queryPt));
-    //minSDF = min(minSDF, mushroomSDF(queryPt, vec3(-3.5, 0.3, 3.7), 1.0));
     return min(minSDF, forestSDF(queryPt));
     
 }
@@ -741,18 +742,18 @@ float sceneSDF(vec3 queryPt) {
 Ray getRay(vec2 uv) {
     Ray r;
     
-    vec3 look = normalize(u_Ref - u_Eye);
-    float len = length(u_Ref - u_Eye);
-    vec3 camera_RIGHT = normalize(cross(look, u_Up));
+    vec3 look = normalize(CAM_REF - CAM_EYE);
+    float len = length(CAM_REF - CAM_EYE);
+    vec3 camera_RIGHT = normalize(cross(look, CAM_UP));
     vec3 camera_UP = cross(camera_RIGHT, look);
     
     float aspect_ratio = u_Dimensions.x / u_Dimensions.y;
     vec3 screen_vertical = camera_UP * len * tan(FOV / 2.0); 
     vec3 screen_horizontal = camera_RIGHT * len * aspect_ratio * tan(FOV / 2.0);
-    vec3 screen_point = (u_Ref + uv.x * screen_horizontal + uv.y * screen_vertical);
+    vec3 screen_point = (CAM_REF + uv.x * screen_horizontal + uv.y * screen_vertical);
     
-    r.origin = u_Eye;
-    r.direction = normalize(screen_point - u_Eye);
+    r.origin = CAM_EYE;
+    r.direction = normalize(screen_point - CAM_EYE);
    
     return r;
 }
@@ -774,9 +775,7 @@ Intersection getRaymarchedIntersection(vec2 uv, out bool isMagicExpanded, out bo
     float dist_t = EPSILON;
 
     // values to be filled by sceneSDF
-    bool terminateRaymarch = false;
     int material_id = -1;
-    int material_id2 = -1;
 
     for (int step = 0; step < MAX_RAY_STEPS; ++step){
       if (dist_t > float(MAX_RAY_LENGTH)){
@@ -785,14 +784,9 @@ Intersection getRaymarchedIntersection(vec2 uv, out bool isMagicExpanded, out bo
       // raymarch
       vec3 queryPt = r.origin + dist_t * r.direction;
       bool isMagic = false;
-      float curDist = sceneSDF(queryPt, material_id, material_id2, terminateRaymarch, isMagic, isMushroom);
+      float curDist = sceneSDF(queryPt, material_id, isMagic, isMushroom);
 
       if (isMagic) isMagicExpanded = true;
-
-      // if ray is under terrain, terminate marching
-      if (terminateRaymarch){
-        return isect;
-      }
 
       // if we hit something, return intersection
       if (curDist < EPSILON){
@@ -800,7 +794,6 @@ Intersection getRaymarchedIntersection(vec2 uv, out bool isMagicExpanded, out bo
         isect.position = queryPt;
         isect.normal = getNormal(queryPt);
         isect.material_id = material_id;
-        isect.material_id2 = material_id2;
         return isect;
       }
       dist_t += curDist;
@@ -881,7 +874,23 @@ vec4 applyFog(float zDepth, vec4 lambert_color, int material_id){
   return lambert_color;
 }
 
-vec4 getMaterial(vec3 n, int material_id, int material_id2, float zDepth, vec3 isectPt, bool isMushroom){
+vec3 getAlbedo(int material_id){
+  switch(material_id){
+    case(GROUND_MAT_ID):
+      return GROUND_COLOR;
+    case(TREE_MAT_ID):
+      return TREE_COLOR;
+    case(PATH_MAT_ID):
+      return PATH_COLOR;
+    case(TEMPLE_MAT_ID):
+      return TEMPLE_COLOR;
+    case(CANDLE_MAT_ID):
+      return vec3(1.0, 0.0, 0.0);
+    default:
+      return SKY_COLOR.rgb;
+  }
+}
+vec4 getIsectColor(vec3 n, int material_id, float zDepth, vec3 isectPt, bool isMushroom){
 
   float diffuseTerm = 0.05;
 
@@ -889,60 +898,14 @@ vec4 getMaterial(vec3 n, int material_id, int material_id2, float zDepth, vec3 i
   float softShadowTerm = /*isInShadow(isectPt + 0.005 * n)*/ 0.0;
 
   diffuseTerm = getDiffuseTerm(isectPt, n);
-  
-  // calc lambert color
-  vec4 materialCol;
-  switch(material_id){
-    case(GROUND_MAT_ID):
-      materialCol = vec4(GROUND_COLOR, 1.0);
-      break;
-    case(TREE_MAT_ID):
-      materialCol = vec4(TREE_COLOR, 1.0);
-      break;
-    case(PATH_MAT_ID):
-      materialCol = vec4(PATH_COLOR, 1.0);
-      break;
-    case(TEMPLE_MAT_ID):
-      materialCol = vec4(TEMPLE_COLOR, 1.0);
-      break;
-    case(CANDLE_MAT_ID):
-      materialCol = vec4(1.0, 0.0, 0.0, 1.0);
-      break;
-    case(MUSHROOM_MAT_ID):
-      vec3 behindColor = SKY_COLOR.rgb;
-      if (material_id2 == GROUND_MAT_ID) behindColor = GROUND_COLOR;
-      if (material_id2 == TREE_MAT_ID) behindColor = TREE_COLOR;
-      if (material_id2 == PATH_MAT_ID) behindColor = PATH_COLOR;
-      if (material_id2 == TEMPLE_MAT_ID) behindColor = TEMPLE_COLOR;
-      materialCol = vec4(behindColor, 1.0);
-      break;
-    default:
-      materialCol = vec4(0.0, 0.0, 1.0, 1.0);
-  }
-
-  /*float guideLightRadius = 1.5;
-  float distToGuideLight = length(isectPt - GUIDE_LIGHT_POS);
-  float guideLightT = easeOutQuad(distToGuideLight / guideLightRadius);
-  vec3 guideLightFactor = distToGuideLight < guideLightRadius ? 
-                          mix(GUIDE_LIGHT_COLOR, vec3(0.0), guideLightT) : vec3(0.0);*/
+  vec3 albedo = getAlbedo(material_id);
   
   vec4 ambientTerm = vec4(0.03, 0.07, 0.09, 0.0);
-  vec4 lambert_color = vec4(materialCol.rgb * diffuseTerm /*+ 2.0*guideLightFactor*/, materialCol.a) + ambientTerm;
-
-  if (material_id == MUSHROOM_MAT_ID){
-      vec3 mushroomCenter = vec3(-3.5, 0.3, 3.7);
-      float distToCenter = length(mushroomCenter - isectPt);
-      vec4 mushroomCol = mix(lambert_color, vec4(MUSHROOM_COLOR, 1.0), /*easeInCubic(distToCenter) / 0.9*/ 0.3);
-      lambert_color = mix(mushroomCol, lambert_color, 0.5);
-  }
+  vec4 lambert_color = vec4(albedo * diffuseTerm, 1.0) + ambientTerm;
 
   if (isFlame){
     vec4 flameColor = mix(vec4(1.9, 1.5, 0.5, 1.0), vec4(1.0, 0.77, 0.5, 1.0), 1.0 -cubicPulse(0.35, 0.4, clamp(flameT / 0.09, 0.0, 1.0)));
     lambert_color = mix(flameColor, lambert_color, 1.0 -cubicPulse(0.7, 0.4, clamp(flameT / 0.09, 0.0, 1.0)));
-
-    /*if (flameT < 0.05){
-      lambert_color = vec4(1.0);
-    }*/
   }
   if (isMushroom){
     lambert_color = mix(vec4(1.0), lambert_color + vec4(0.05), easeOutExpo(1.f - (mushDist*1.1f)));
@@ -963,9 +926,8 @@ vec4 getSceneColor(vec2 uv, out bool isMagic){
   
   if (intersection.distance_t > 0.0)
   { 
-      return getMaterial(intersection.normal, intersection.material_id, intersection.material_id2,
+      return getIsectColor(intersection.normal, intersection.material_id,
                          intersection.position.z, intersection.position, isMushroom);
-      return vec4(intersection.normal, 1.0);
   }
   return SKY_COLOR;
 }
@@ -977,10 +939,8 @@ void main() {
   // get the scene color
   bool isMagic = false;
   vec4 col = getSceneColor(uv, isMagic);
-  //Ray r = getRay(uv);
   
   bool isRain = getRainColor(uv);
-  //bool isRain = false;
   if (isRain){
       out_Col = mix(col, vec4(1.0), 0.20);
   }
@@ -999,6 +959,4 @@ void main() {
   else{ 
       out_Col = col;  
   }
-  
-  //out_Col = vec4(0.5 * (r.direction + vec3(1.0, 1.0, 1.0)), 1.0);
 }

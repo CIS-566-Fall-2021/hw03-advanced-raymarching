@@ -1,5 +1,46 @@
 # CIS 566 Homework 3: Advanced Raymarched Scenes
 
+Jake Lem
+
+PennKey: jakelem
+
+Live demo: https://jakelem.github.io/hw03-advanced-raymarching/
+
+For my project, I modeled Bjork from her 1997 album cover Homogenic.
+
+<p align="center">
+<img src="images/bjork1.png" alt="drawing" width="350"/>
+</p>
+<p align= "center">
+
+My reference images are below:
+
+<p align="center">
+<img src="images/HomogenicReal.png" alt="drawing" width="350"/>
+</p>
+<p align= "center">
+
+<p align="center">
+<img src="images/HomogenicReal2.jpeg" alt="drawing" width="350"/>
+</p>
+<p align= "center">
+
+## Techniques used
+- __SDF Modeling__: I used various signed distance functions with smooth union, intersection, and difference functions to create the base model. I used the absolute value of the query point's x value to model symmetric features such as the eyes and hair, as well as the onion operation outlined by IQ to model hollow shapes like the sleeves. I also utilized domain distortion and displacement to model folds in clothes. Finally, I used a quadratic displacement on a box to model the lips.
+
+- __Procedural Materials__: I created different materials for the skin, hair, blue textured cloth, red textured cloth, eyes, and gold rings around the neck. Each of these materials vary in albedo, diffuse contribution, specularity, and cosine power. I assigned albedo for the face by assigning specific points for regions such as the cheeks, and then and mixing colors based on the falloff distance from these points. I created more detailed albedo textures for the other materials, described directly below.
+
+- __Textures and Normal Maps__: I created procedural 2D textures for the dress, hair, and belt and mapped them onto the model. To apply UVs to the surface, I divided the scene domain into several cells along the y axis, and then determined the angles of each intersection point from the corner of each cell. I then used these angles and the y-coordinates within the cell as uv coordinates, essentially projecting UVs on a cylinder about the y axis. The blue dress plant texture is animated using 2D SDFs in order to create rotating flowers and boxes distorted with FBM. I also created height maps for each of these textures and calculated the gradient to create normal maps, then applied these to the model using the Tangent/Bitangent/Normal matrix. Most of these normal maps were derived using  biased sin patterns, FBM noise, and 2D SDF distances.
+
+- __Lighting and Shadows__: I utilized three point lights and a blue fill light to color the scene, along with soft shadows as per the instructions.
+
+
+
+## Sources
+- Calculating normals for a 2D height field: https://stackoverflow.com/questions/34644101/calculate-surface-normals-from-depth-image-using-neighboring-pixels-cross-produc
+- 2D Signed Distance Functions: https://www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
+- 3D Signed Distance Functions: https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
+
 ## Objective
 - Gain experience with signed distance functions
 - Experiment with animation curves

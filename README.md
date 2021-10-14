@@ -2,7 +2,13 @@
 Emma Holthouser
 PennKey Emma20
 
-I chose to create an sdf scene based off an image of the golden gate bridge. I used a myraid of different sdf functions and used smooth union, or smin in my code for my front rocks and on my cables. The water under the bridge is animated and I used toolbox functions include, cosine, mix, and Ease in quadratic. I am using mix to interpolate between movement in the x and z direction and ease in quadritic for the time in order to make the transition where the motion starts smoother. (I implemented some features to optimize but the frame rate is still low and the animated is subtle since the water is supposed to be far under the bride) I have currently implemented soft shadows but I am using a high k value to simulate hard shadows for this assignment, but still give myself the option to edit the shadows for the next assigment. Also I know the back of the bridge just kind of awkwardly stops. I am planning on blending it more with the background sky color for the next project. 
+I chose to create an sdf scene based off an image of the golden gate bridge. I used a myraid of different sdf functions and used smooth union, or smin in my code for my front rocks and on my cables. The water under the bridge is animated and I used toolbox functions include, cosine, mix, and Ease in quadratic. I am using noises for the background city, the grassy hill in the front and the color on the water as well as the animation of the water. Worley noise is being used to add color variation to the water and it is currently being animated. The motion of the water is also animated with the use of perlin noise offsetting the y axis of the height field
+
+For optimizzation I seem to be getting a wide variety of fps depending on when I open the project. I am currently using bounding boxes for every major aspect of the scene, as well as a max ray depth. Unfortunately my scene takes up a lot of space especially on the z axis so the max z is pretty hight. I am also using repetition to try and improve the fps. I am repeating the main edge of the bridge as well as all of the bridge poles. 
+
+I am using a lambert shader for most of the material but applied some specular highlights to the water. I am using fbm to add color variation to the city in the back the rock in the front and the water. The water, city, bridge, road, rock, and background sky are all different materials. 
+
+The scene has a 3 point light system with the main key light in the top right of the scene with a yellow tint. The fill light is on the left side of the scene and is more a blue tint to fill in the shadows. The third rim light is more toward the back of the scene in order to add more ambient light. 
 
 -----------
 ![](images/bridge.jpeg)
@@ -10,52 +16,22 @@ I chose to create an sdf scene based off an image of the golden gate bridge. I u
 ![](images/sdfBridge.png)
 
 my live link is https://emmaholthouser16.github.io/hw02-raymarching-sdfs/ but I am having trouble getting it to sync at the moment
+# CIS 566 Homework 3: Advanced Raymarched Scenes
+
 ## Objective
 - Gain experience with signed distance functions
 - Experiment with animation curves
+- Create a presentable portfolio piece
 
 ## Base Code
 
-Please feel free to use this code as a base (https://www.shadertoy.com/view/fsdXzM)
-
-The code we have provided for this assignment features the following:
-- A square that spans the range [-1, 1] in X and Y that is rendered with a
-shader that does not apply a projection matrix to it, thus rendering it as the
-entirety of your screen
-- TypeScript code just like the code in homework 1 to set up a WebGL framework
-- Code that passes certain camera attributes (listed in the next section),
-the screen dimensions, and a time counter to the shader program.
+You will copy your implementation of hw02 into your hw03 repository.
 
 ## Assignment Requirements
-- __(10 points)__ Modify the provided `flat-frag.glsl` to cast rays from a
-virtual camera. We have set up uniform variables in your shader that take in
-the eye position, reference point position, and up vector of the `Camera` in
-the provided TypeScript code, along with a uniform that stores the screen width
-and height. Using these uniform variables, and only these uniform variables,
-you must write a function that uses the NDC coordinates of the current fragment
-(i.e. its fs_Pos value) and projects a ray from that pixel. Refer to the [slides
-on ray casting](https://docs.google.com/presentation/d/e/2PACX-1vSN5ntJISgdOXOSNyoHimSVKblnPnL-Nywd6aRPI-XPucX9CeqzIEGTjFTwvmjYUgCglTqgvyP1CpxZ/pub?start=false&loop=false&delayms=60000&slide=id.g27215b64c6_0_107)
-from CIS 560 for reference on how to cast a ray without an explicit
-view-projection matrix. You'll have to compute your camera's Right vector based
-on the provided Up vector, Eye point, and Ref point. You can test your ray
-casting function by converting your ray directions to colors using the formula
-`color = 0.5 * (dir + vec3(1.0, 1.0, 1.0))`. If your screen looks like the
-following image, your rays are being cast correctly:
-![](rayDir.png)
-- __(70 points)__ Create a scene using raymarched signed distance functions.
-The subject of your scene should be based on some reference image, such as a
-shot from a movie or a piece of artwork. Your scene should incorporate the
-following elements:
-  - The SDF combination operation Smooth Blend.
-  - Basic Lambertian reflection using a hard-coded light source and SDF surface normals.
-  - Animation of at least one element of the scene, with at least two Toolbox Functions
-  used to control the animation(s).
-  - Hard-edged shadows cast by shapes in the scene onto one another using a shadow-feeler ray.
-
-For the next assignment you will build upon this scene with procedural textures and more
-advanced lighting and reflection models, so don't worry if your scene looks a bit drab
-given the requirements listed above.
-
+- __(35 points) Artwork Replication__ Your raymarched scene should attempt to replicate the appearance of your inspiration (include picture) with clear effort put into the replication.
+- __(25 points) Materials__ Your scene should be composed of at least three different materials. We define a material to be a surface reflection model combined with some base surface color; texturing is optional.
+- __(10 points) Lighting and Shadows__ Light your scene with at least three light sources. At least one of your light sources must cast shadows, and they should be soft shadows using the penumbra shadows algorithm we discussed in class. Consider following the "Key Light, Fill Light, GI Light" formulation from the in-class example.
+- __(20 points) Performance__ The frame rate of your scene must be at least 10FPS.
 - __(10 points)__ Following the specifications listed
 [here](https://github.com/pjcozzi/Articles/blob/master/CIS565/GitHubRepo/README.md),
 create your own README.md, renaming this file to INSTRUCTIONS.md. Don't worry
@@ -64,8 +40,7 @@ README contains the following information:
   - Your name and PennKey
   - Citation of any external resources you found helpful when implementing this
   assignment.
-  - A link to your live github.io demo (refer to the pinned Piazza post on
-    how to make a live demo through github.io)
+  - A link to your live github.io demo
   - An explanation of the techniques you used to model and animate your scene.
 
 ## Useful Links
@@ -73,19 +48,3 @@ README contains the following information:
 - [IQ's Article on Smooth Blending](http://www.iquilezles.org/www/articles/smin/smin.htm)
 - [IQ's Article on Useful Functions](http://www.iquilezles.org/www/articles/functions/functions.htm)
 - [Breakdown of Rendering an SDF Scene](http://www.iquilezles.org/www/material/nvscene2008/rwwtt.pdf)
-
-
-## Submission
-Commit and push to Github, then submit a link to your commit on Canvas. Remember
-to make your own README!
-
-## Inspiration
-- [Alien Corridor](https://www.shadertoy.com/view/4slyRs)
-- [The Evolution of Motion](https://www.shadertoy.com/view/XlfGzH)
-- [Fractal Land](https://www.shadertoy.com/view/XsBXWt)
-- [Voxel Edges](https://www.shadertoy.com/view/4dfGzs)
-- [Snail](https://www.shadertoy.com/view/ld3Gz2)
-- [Cubescape](https://www.shadertoy.com/view/Msl3Rr)
-- [Journey Tribute](https://www.shadertoy.com/view/ldlcRf)
-- [Stormy Landscape](https://www.shadertoy.com/view/4ts3z2)
-- [Generators](https://www.shadertoy.com/view/Xtf3Rn)

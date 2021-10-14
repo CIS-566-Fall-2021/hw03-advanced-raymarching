@@ -8,20 +8,44 @@ uniform float u_Time;
 in vec2 fs_Pos;
 out vec4 out_Col;
 
-const int RAY_STEPS = 256;
 #define DEG_TO_RAD 3.14159 / 180.0
-#define LIGHT_POS vec3(-8.0, 30.0, -8.0)
+// Optimization
+const int RAY_STEPS = 256;
 #define MAX_RAY_Z 40.0;
 
+// Key light
+#define LIGHT_POS vec3(-8.0, 30.0, -8.0)
+// Fill light
+#define SKY_FILL_LIGHT_COLOR vec3(0.2, 0.55, 0.65) * 0.2
+#define SKY_FILL_LIGHT_DIR vec3(0.0, 1.0, 0.0)
+// Fake global illumination light
+#define SUN_AMBIENT_LIGHT_COLOR vec3(0.6, 0.6, 0.2) * 0.2
+#define SUN_AMBIENT_LIGHT_DIR vec3(-8.0, 0.0, -8.0)
+
+// Structs
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+
+struct Intersection {
+    float t;
+    vec3 color;
+    vec3 p;
+    int object;
+};
+
 ////////// GEOMETRY //////////
+// Podium
 #define CENTER_TRI_SDF triangularPrism(rotateX(pos + vec3(0.0, 0.0, 0.0), -75.0), vec2(8.0, 1.0))
 #define MIDDLE_TRI_SDF triangularPrism(rotateX(pos + vec3(0.0, -0.25, 0.0), -75.0), vec2(7.0, 1.0))
 #define SWORD_HOLDER_SDF triangularPrism(rotateX(pos + vec3(0.0, -0.5, 0.0), 105.0), vec2(2.0, 1.0))
+
+// Sword
 #define SWORD_BLADE_BOTTOM_SDF box(pos + vec3(0.0, -2.3, 0.5), vec3(0.25, 1.5, 0.03))
 #define SWORD_BLADE_TOP_SDF box(pos + vec3(0.0, -4.0, 0.5), vec3(0.15, 0.5, 0.03))
 #define SWORD_GUARD_SDF triangularPrism(rotateZ(pos + vec3(0.0, -4.9, 0.5), 180.0), vec2(0.35, 0.05))
-#define SWORD_HILT_SDF capsule(pos + vec3(0.0, -5.4, 0.5), vec3(0.0, 0.5, 0.04), vec3(0.0, 0.5, 0.04), 0.1)
-// #define SWORD_HILT_SDF box(pos + vec3(0.0, -5.4, 0.5), vec3(0.1, 0.5, 0.04))
+#define SWORD_HILT_SDF capsule(pos + vec3(0.0, -5.4, 0.5), vec3(0.0, 0.5, 0.04), vec3(0.0, -0.3, 0.04), 0.05)
 #define SWORD_HILT2_SDF box(pos + vec3(0.0, -4.8, 0.5), vec3(0.15, 0.05, 0.03))
 #define SWORD_GEM_SDF capsule(pos + vec3(0.0, -4.6, 0.0), vec3(0.0, 0.2, -0.55), vec3(0.0, -0.1, -0.55), 0.08)
 #define SWORD_LEFT_WING_SDF box(rotateZ(pos + vec3(0.25, -4.7, 0.5), -60.0), vec3(0.1, 0.5, 0.05))
@@ -31,44 +55,50 @@ const int RAY_STEPS = 256;
 #define SWORD_END_SDF box(rotateZ(pos + vec3(0.0, -6.0, 0.5), 45.0), vec3(0.15, 0.15, 0.05))
 #define SWORD_QUAD_SDF box(rotateZ(pos + vec3(0.0, -3.8, 0.5), 45.0), vec3(0.22, 0.22, 0.03))
 
+// Steps
 #define TOP_STEP_SDF roundBox(rotateX(rotateZ(pos + vec3(0.4, 1.95, 4.0), 2.0), 3.0), vec3(4.2, 1.0, 0.5), 0.25)
 #define TOP_STEP_CONNECTOR_SDF roundedCylinder(rotateX(pos + vec3(-3.5, 2.3, 4.5), 3.0), 0.5, 0.7, 0.5)
 #define MID_STEP_SDF roundBox(rotateX(rotateY(pos + vec3(0.0, 2.9, 4.8), -8.0), 3.0), vec3(4.2, 1.0, 0.5), 0.25)
 #define BOT_STEP_SDF roundBox(rotateX(pos + vec3(0.4, 3.1, 5.2), 3.0), vec3(3.4, 0.4, 1.2), 0.25)
 #define STEPS_SDF smoothBlend(TOP_STEP_SDF, smoothBlend(TOP_STEP_CONNECTOR_SDF, smoothBlend(MID_STEP_SDF, BOT_STEP_SDF, 0.1), 0.25), 0.25)
 
+// Front stones
 #define LEFT_FRONT_STONE_SDF roundBox(rotateX(pos + vec3(-7.5, 2.6, 4.0), 1.0), vec3(2.5, 1.5, 1.5), 0.2)
 #define RIGHT_FRONT_STONE_SDF roundBox(rotateX(pos + vec3(7.5, 2.6, 4.0), 1.0), vec3(2.5, 1.5, 1.5), 0.5)
 
+// Floor
 #define FLOOR_SDF plane(rotateX(pos + vec3(0.0, 1.6, 0.0), 5.0), vec4(0.0, 1.0, 0.0, 1.0))
 
+// Background elements
 #define BACK_BOTTOM_STEP_SDF roundBox(pos + vec3(0.0, -1.0, -20.0), vec3(7.0, 4.0, 1.5), 0.25)
 #define BACK_TOP_STEP_SDF roundBox(pos + vec3(0.0, -5.0, -24.0), vec3(4.0, 4.0, 1.5), 0.25)
-#define FLOATING_ROCK_SDF ellipsoid(pos + vec3(0.0, -23.0, -24.0) + vec3(0.0, 5.0, 0.0) * bias(0.8f, cos(u_Time / 20.f)), vec3(4.0, 8.0, 4.0))
+#define FLOATING_ROCK_SDF ellipsoid(pos + vec3(0.0, -23.0, -24.0) + vec3(0.0, 5.0, 0.0) * bias(0.8f, cos(u_Time / 20.f)), vec3(4.0, 8.0, 4.0) + vec3(0.5))
 ////////// GEOMETRY ENDS //////////
 
+////////// MATERIAL IDS //////////
 #define CENTER_TRI 0
 #define MIDDLE_TRI 1
 #define SWORD_HOLDER 2
 #define SWORD_BLADE_BOTTOM 3
-#define SWORD_BLADE_TOP 20
-#define SWORD_QUAD 4
-#define SWORD_GUARD 5
-#define SWORD_HILT 6
-#define SWORD_HILT2 21
-#define FLOOR 7
-#define STEPS 8
-#define LEFT_FRONT_STONE 9
-#define RIGHT_FRONT_STONE 10
-#define BACK_BOTTOM_STEP 11
-#define BACK_TOP_STEP 12
-#define FLOATING_ROCK 13
-#define SWORD_END 14
-#define SWORD_LEFT_WING 15
-#define SWORD_RIGHT_WING 16
-#define SWORD_LEFT_WING_END 17
-#define SWORD_RIGHT_WING_END 18
-#define SWORD_GEM 19
+#define SWORD_BLADE_TOP 4
+#define SWORD_QUAD 5
+#define SWORD_GUARD 6
+#define SWORD_HILT 7
+#define SWORD_HILT2 8
+#define SWORD_END 9
+#define SWORD_LEFT_WING 10
+#define SWORD_RIGHT_WING 11
+#define SWORD_LEFT_WING_END 12
+#define SWORD_RIGHT_WING_END 13
+#define SWORD_GEM 14
+#define STEPS 15
+#define LEFT_FRONT_STONE 16
+#define RIGHT_FRONT_STONE 17
+#define FLOOR 18
+#define BACK_BOTTOM_STEP 19
+#define BACK_TOP_STEP 20
+#define FLOATING_ROCK 21
+////////// MATERIAL IDS END //////////
 
 ////////// SDFS //////////
 float sphere(vec3 p, float s) {
@@ -153,11 +183,6 @@ vec3 rotateZ(vec3 p, float a) {
     a = DEG_TO_RAD * a;
     return vec3(cos(a) * p.x + -sin(a) * p.y, sin(a) * p.x + cos(a) * p.y, p.z);
 }
-
-// Referenced https://www.shadertoy.com/view/wdXfRH
-vec3 opCheapBend(in vec3 p, float k) {
-    return rotateZ(p, k * p.x);
-}
 ////////// TRANSFORMATIONS END //////////
 
 ////////// TOOLBOX FUNCTIONS //////////
@@ -176,64 +201,64 @@ float gain(float g, float t) {
 
 
 ////////// NOISE FUNCTIONS //////////
-float noise1D( vec2 p ) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) *
-                 43758.5453);
+vec3 noise3D(vec3 p) {
+    float val1 = fract(sin((dot(p, vec3(127.1, 311.7, 191.999)))) * 43758.5453);
+
+    float val2 = fract(sin((dot(p, vec3(191.999, 127.1, 311.7)))) * 3758.5453);
+
+    float val3 = fract(sin((dot(p, vec3(311.7, 191.999, 127.1)))) * 758.5453);
+
+    return vec3(val1, val2, val3);
 }
 
-float interpNoise2D(float x, float y) {
+vec3 interpNoise3D(float x, float y, float z) {
     int intX = int(floor(x));
     float fractX = fract(x);
     int intY = int(floor(y));
     float fractY = fract(y);
+    int intZ = int(floor(z));
+    float fractZ = fract(z);
 
-    float v1 = noise1D(vec2(intX, intY));
-    float v2 = noise1D(vec2(intX + 1, intY));
-    float v3 = noise1D(vec2(intX, intY + 1));
-    float v4 = noise1D(vec2(intX + 1, intY + 1));
+    vec3 v1 = noise3D(vec3(intX, intY, intZ));
+    vec3 v2 = noise3D(vec3(intX + 1, intY, intZ));
+    vec3 v3 = noise3D(vec3(intX, intY + 1, intZ));
+    vec3 v4 = noise3D(vec3(intX + 1, intY + 1, intZ));
 
-    float i1 = mix(v1, v2, fractX);
-    float i2 = mix(v3, v4, fractX);
-    return mix(i1, i2, fractY);
+    vec3 v5 = noise3D(vec3(intX, intY, intZ + 1));
+    vec3 v6 = noise3D(vec3(intX + 1, intY, intZ + 1));
+    vec3 v7 = noise3D(vec3(intX, intY + 1, intZ + 1));
+    vec3 v8 = noise3D(vec3(intX + 1, intY + 1, intZ + 1));
+
+    vec3 i1 = mix(v1, v2, fractX);
+    vec3 i2 = mix(v3, v4, fractX);
+
+    vec3 i3 = mix(i1, i2, fractY);
+
+    vec3 i4 = mix(v5, v6, fractX);
+    vec3 i5 = mix(v7, v8, fractX);
+
+    vec3 i6 = mix(i4, i5, fractY);
+
+    vec3 i7 = mix(i3, i6, fractZ);
+
+    return i7;
 }
 
+vec3 fbm(float x, float y, float z) {
+    vec3 total = vec3(0.f, 0.f, 0.f);
 
-float fbm(float x, float y) {
-    float total = 0.0;
-    float persistence = 0.5;
-    int octaves = 4;
+    float persistence = 0.5f;
+    int octaves = 6;
 
-    for(int i = 1; i <= octaves; i++) {
-        float freq = pow(2.0, float(i));
+    for(int i = 1; i <= octaves; i++)
+    {
+        float freq = pow(2.f, float(i));
         float amp = pow(persistence, float(i));
 
-        total += interpNoise2D(x * freq,
-                               y * freq) * amp;
+        total += interpNoise3D(x * freq, y * freq, z * freq) * amp;
     }
+
     return total;
-}
-
-vec2 random2( vec2 p ) {
-    return fract(sin(vec2(dot(p, vec2(127.1, 311.7)),
-                 dot(p, vec2(269.5,183.3))))
-                 * 43758.5453);
-}
-
-float worley(vec2 uv) {
-    uv *= 10.0; 
-    vec2 uvInt = floor(uv);
-    vec2 uvFract = fract(uv);
-    float minDist = 1.0;
-    for(int y = -1; y <= 1; ++y) {
-        for(int x = -1; x <= 1; ++x) {
-            vec2 neighbor = vec2(float(x), float(y));
-            vec2 point = random2(uvInt + neighbor); 
-            vec2 diff = neighbor + point - uvFract;
-            float dist = length(diff);
-            minDist = min(minDist, dist);
-        }
-    }
-    return minDist;
 }
 
 vec3 random3(vec3 p) {
@@ -265,20 +290,17 @@ float perlin(vec3 p) {
 }
 ////////// NOISE FUNCTIONS END //////////
 
+////////// COLOR FUNCTIONS //////////
+vec3 rgb(vec3 color) {
+    return vec3(color.x / 255.0, color.y / 255.0, color.z / 255.0);
+}
+
+vec3 cosinePalette(vec3 a, vec3 b, vec3 c, vec3 d, float t) {
+    return a + b * cos(6.2831 * (c * t + d));
+}
+////////// COLOR FUNCTIONS END //////////
 
 ////////// RAY MARCHING //////////
-struct Ray {
-    vec3 origin;
-    vec3 direction;
-};
-
-struct Intersection {
-    float t;
-    vec3 color;
-    vec3 p;
-    int object;
-};
-
 Ray raycast(vec2 uv) {
   Ray r;
   
@@ -484,6 +506,7 @@ vec3 getSceneColor(int hitObj, vec3 p, vec3 n, vec3 light, vec3 view) {
     float shininess = 4.0;
     vec3 specularColor = vec3(1.0);
     vec3 blinnPhong = max(pow(dot(h, n), shininess), 0.f) * specularColor;
+    vec3 a, b, c, d;
     switch(hitObj) {
         case CENTER_TRI:
         case SWORD_HOLDER:
@@ -491,18 +514,26 @@ vec3 getSceneColor(int hitObj, vec3 p, vec3 n, vec3 light, vec3 view) {
         case LEFT_FRONT_STONE:
         case RIGHT_FRONT_STONE:
         case MIDDLE_TRI:
-        case SWORD_QUAD:
         case BACK_TOP_STEP:
         case BACK_BOTTOM_STEP:
         case FLOATING_ROCK:
-        return vec3(0.741, 0.694, 0.482) * lambert;
+        a = vec3(-0.281, 0.4884, 0.5384);
+        b = vec3(-1.301, 0.3884, -0.041);
+        c = vec3(0.1384, -0.141, -0.381);
+        d = vec3(-1.581, 0.1784, -0.121);
+        return cosinePalette(a, b, c, d, fbm(p.x / 2.0, p.y / 2.0, p.z / 2.0).x) / 1.2 * lambert;
         break;
         case FLOOR:
-        return vec3(0.2, 0.6, 0.2) * lambert;
+        a = vec3(0.3, 0.8, 0.1);
+        b = vec3(0.5);
+        c = vec3(1.0);
+        d = vec3(0.3, 0.2, 0.2);
+        return cosinePalette(a, b, c, d, perlin(p / 100.0)) * lambert;
         break;
         case SWORD_BLADE_BOTTOM:
         case SWORD_BLADE_TOP:
-        return vec3(0.85, 0.8, 0.7) * lambert;
+        case SWORD_QUAD:
+        return rgb(vec3(165.0, 240.0, 232.0)) * lambert + blinnPhong;
         break;
         case SWORD_HILT:
         return vec3(0.1, 0.7, 0.7) * lambert;
@@ -517,10 +548,15 @@ vec3 getSceneColor(int hitObj, vec3 p, vec3 n, vec3 light, vec3 view) {
         return vec3(0.2, 0.2, 0.7) * lambert;
         break;
         case SWORD_GEM:
-        return vec3(0.7, 0.7, 0.1) * lambert + vec3(0.5) * blinnPhong;
+        return vec3(0.7, 0.7, 0.1) * lambert + vec3(0.5) + blinnPhong;
         break;
     }
-    return vec3(0.0);
+    // Background color
+    a = vec3(-1.061, 0.4884, 0.5384);
+    b = vec3(-1.301, 0.3884, -0.041);
+    c = vec3(0.1384, -0.141, -0.381);
+    d = vec3(-1.581, 0.1784, -0.121);
+    return cosinePalette(a, b, c, d, perlin(p * 5.0));
 }
 
 Intersection getIntersection(vec3 dir, vec3 eye, vec3 lightPos) {
@@ -534,8 +570,10 @@ Intersection getIntersection(vec3 dir, vec3 eye, vec3 lightPos) {
     
     vec3 lightDir = normalize(lightPos - isect);
     
-    surfaceColor *= getSceneColor(hitObj, isect, nor, lightDir, normalize(isect - eye)) * softShadow(lightDir, isect, 0.001, 8.0, lightPos);
-    
+    surfaceColor *= getSceneColor(hitObj, isect, nor, lightDir, normalize(isect - eye)) * softShadow(lightDir, isect, 0.1, 8.0, lightPos);
+    // Fill light and global illumination
+    surfaceColor += max(0.0, dot(nor, SKY_FILL_LIGHT_DIR)) * vec3(1.2f) * SKY_FILL_LIGHT_COLOR;
+    surfaceColor += max(0.0, dot(nor, SUN_AMBIENT_LIGHT_DIR)) * vec3(0.1) * SUN_AMBIENT_LIGHT_COLOR;
     return Intersection(t, surfaceColor, isect, hitObj);
 }
 ////////// RAY MARCHING END //////////

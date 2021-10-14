@@ -617,7 +617,7 @@ Intersection getRaymarchedIntersection(vec2 uv)
         return intersection;
       }
       vec3 point = r.origin + r.direction * distancet;
-      if(isinf(point.x) || isinf(point.y))
+      if(isinf(point.x) || isinf(point.y) || isinf(point.z))
       {
         break;
       }

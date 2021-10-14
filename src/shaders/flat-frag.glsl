@@ -821,9 +821,9 @@ float isInShadow(vec3 p){
 
       // if we hit something, return intersection
       if (h < EPSILON){
-        return res;
+        return 0.0;
       }
-      res = min(res, 600.0*h/t);
+      res = min(res, 150.0*h/t);
       t += h;
   }
   return res;
@@ -886,7 +886,7 @@ vec4 getMaterial(vec3 n, int material_id, int material_id2, float zDepth, vec3 i
   float diffuseTerm = 0.05;
 
   // calc shadow; if in shadow, add faint blue shadow
-  float softShadowTerm = /*isInShadow(isectPt + 0.005 * n)*/ 1.0;
+  float softShadowTerm = /*isInShadow(isectPt + 0.005 * n)*/ 0.0;
 
   diffuseTerm = getDiffuseTerm(isectPt, n);
   
@@ -949,7 +949,7 @@ vec4 getMaterial(vec3 n, int material_id, int material_id2, float zDepth, vec3 i
   }
 
   vec4 shadowCol = mix(lambert_color, vec4(0.01, 0.0, 0.15, 1.0), 0.3);
-  lambert_color = mix(lambert_color, shadowCol, 1.0);
+  lambert_color = mix(shadowCol, lambert_color, softShadowTerm);
 
   // calc fog
   vec4 res = applyFog(zDepth, lambert_color, material_id);

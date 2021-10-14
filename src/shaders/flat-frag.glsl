@@ -286,8 +286,17 @@ vec4 intersect(vec2 uv) {
   return intersection;
 }
 
-vec3 getColor(vec3 p){
-  vec3 color = vec3(0.0);
+vec3 getColor(){
+  
+  float ss = 0.0;
+  vec4 intersection = intersect(fs_Pos);
+  if(length(intersection.xyz) > 0.0) {
+    vec3 rayDir = getDir(fs_Pos);
+    vec3 p = u_Eye + rayDir * intersection.w;
+    ss = shadow(p, LIGHT, 0.0, 1.25, 1.0);
+  }
+
+  vec3 color = vec3(1.0);
   if(type == 0) {
     color = vec3(130.0, 114.0, 86.0)/255.0; //floor
   }
@@ -306,18 +315,8 @@ vec3 getColor(vec3 p){
   if(type == 5) {
     color = vec3(0.9);
   }
-  return color;
-}
 
-void main() {
-  vec3 diffuseColor = vec3(230.0, 229.0, 227.0) / 255.0;
-  vec4 intersection = intersect(fs_Pos);
-  if(length(intersection.xyz) > 0.0) {
-    vec3 rayDir = getDir(fs_Pos);
-    vec3 p = u_Eye + rayDir * intersection.w;
-    float ss = shadow(p, LIGHT, 0.0, 0.7, 0.8);
-    diffuseColor = getColor(p) * ss;
-  }
+  color = color * ss;
 
   // Calculate the diffuse term for Lambert shading
   float diffuseTerm = dot(normalize(intersection.xyz), normalize(LIGHT));
@@ -329,9 +328,20 @@ void main() {
   diffuseTerm2 = clamp(diffuseTerm2, 0.0, 1.0);
   diffuseTerm3 = clamp(diffuseTerm3, 0.0, 1.0);
   float ambientTerm = 0.2;
+  vec3 H = (LIGHT + u_Eye) / 2.0;
+  float specularIntensity = max(pow(dot(normalize(H), normalize(intersection.xyz)), 50.0), 0.0);
 
   float lightIntensity = diffuseTerm + 0.2 * diffuseTerm2 + 0.3 * diffuseTerm3 + ambientTerm;
 
+  if(type == 1) {
+    return vec3(color * lightIntensity + specularIntensity);
+  }
+
+  return vec3(color * lightIntensity);
+}
+
+void main() {
+  vec3 color = getColor();
   // Compute final shaded color
-  out_Col = vec4(diffuseColor.rgb * lightIntensity, 1.0);
+  out_Col = vec4(color, 1.0);
 }

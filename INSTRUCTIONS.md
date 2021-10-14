@@ -1,7 +1,7 @@
-Name: Effie Li
-Pennkey:effieli
-Citation: https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
-Link: 
+!Name: Effie Li
+!Pennkey:effieli
+!Citation: https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
+!Link: 
 
 ![catColored](catColored.JPG)
 ![capture](capture.JPG)

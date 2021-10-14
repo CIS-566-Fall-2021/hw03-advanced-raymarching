@@ -528,7 +528,7 @@ vec4 raycast(vec3 origin, vec3 dir, int maxSteps)
         }
         
         t += dist.x;
-        if(t > 40.0) {
+        if(t > 60.0) {
             return vec4(0.0, 0.0, 0.0, -100.0);
 
         }
@@ -595,7 +595,6 @@ Material robePattern(vec2 uv)
 {
     Material matRes;
     float modTime = mod(u_Time, 100.0 * pi);
-
     vec4 fbm = fbm3(uv.xyy + vec3(0.0, 0.0, 0.0), 5, 1.0, 1.5, 0.4, 2.0);
    // fbm.x = 0.0;
     vec2 centerUv = uv - vec2(0.5);
@@ -604,7 +603,7 @@ Material robePattern(vec2 uv)
     centerUv.x += 0.7 * fbm.x;
     centerUv.y += 0.2 * fbm.x;
 
-    float growthTime = sin(0.04 * modTime) ;
+    float growthTime = sin(0.04 * modTime);
 
     float res = box2d(centerUv, vec2(0.03, abs(growthTime) * 0.66));
     res = min(res, orientedBox2d(centerUv, vec2(0.0, 0.0), growthTime * vec2(0.2, 0.3), 0.02));
@@ -686,14 +685,10 @@ Material beltPattern(vec2 uv)
         matRes.ks = 0.9;
         matRes.color = vec3(0.9, 0.54, 0.5);
         matRes.cosPow = 60.0;
-
         matRes.displacement += (0.3 - threshold) * 10.0;
     }
-    //matRes.displacement += 20.0 * -(threshold);
     matRes.displacement += -4.0 * getBias(abs(sin((1.2 * uv.x + uv.y) * 10.0)), 0.8);
-
-    //matRes.displacement = dispThreshold * 100.0;
-   // matRes.color = vec3(threshold * threshold * threshold * threshold);
+    
     return matRes;
 }
 
@@ -747,6 +742,45 @@ vec3 calcHairNormals(vec2 uv)
 
 }
 
+Material backgroundPattern(vec2 uv)
+{
+    float modTime = mod(u_Time, 100.0 * pi);
+
+    Material matRes;
+    vec4 fbm = fbm3(uv.xyy + vec3(0.0, 0.0, 0.0), 5, 1.0, 1.5, 0.4, 2.0);
+    vec2 centerUv = uv - vec2(0.5);
+    
+    centerUv.x += 0.2 * sin(8.0 * centerUv.y);// + 0.7 * fbm.x;
+    centerUv.x += 0.7 * fbm.x;
+    centerUv.y += 0.2 * fbm.x;
+
+    float growthTime = sin(0.04 * modTime);
+    float vines = box2d(centerUv, vec2(0.03, abs(growthTime) * 0.66));
+    float a = getBias((uv.y + 1.0) * 0.5, 0.68);
+    matRes.color = mix(vec3(0.58,0.6,0.72), vec3(0.92,0.95,0.96), a);
+    if(vines < 0.001) {
+        matRes.color = vec3(0.3, 0.01, 0.1);
+        matRes.displacement += vines;
+    }
+    
+    return matRes;
+}
+
+vec3 calcBackgroundNormals(vec2 uv)
+{
+    float epsilon = 0.01;
+    Material left = backgroundPattern(vec2(uv.x - epsilon, uv.y));
+    Material right = backgroundPattern(vec2(uv.x + epsilon, uv.y));
+    Material up = backgroundPattern(vec2(uv.x, uv.y - epsilon));
+    Material down = backgroundPattern(vec2(uv.x, uv.y + epsilon));
+    
+    float dzdx = (right.displacement - left.displacement) * 0.5;
+    float dzdy = (up.displacement - down.displacement) * 0.5;
+    
+    return normalize(vec3(-dzdx, -dzdy, 1.0f));
+
+}
+
 void main() {
     float modTime = mod(u_Time, 100.0 * pi);
 
@@ -773,6 +807,19 @@ void main() {
     
     // Clear color
     vec3 albedo = mix(vec3(0.58,0.6,0.72), vec3(0.92,0.95,0.96), a);
+    
+    /*vec2 pos_uv = fs_Pos;
+    pos_uv.y *= aspect;
+    Material m = backgroundPattern(pos_uv);
+    if(flower(fs_Pos.xy, 0.5, 3.0, 0.3, 1.0) < 0.001) {
+    }
+    albedo = m.color;
+
+    vec3 backgroundNormal = calcBackgroundNormals(fs_Pos);
+    vec3 lightBackground = normalize(vec3(1.0, 0.0, 1.0));
+    float diffuseBackground = clamp(dot(backgroundNormal, lightBackground), 0.0, 1.0);
+    vec3 col = diffuseBackground* albedo  ;*/
+    
     vec3 col = albedo;
     if(isect.w >= 0.0)
     {
@@ -803,9 +850,9 @@ void main() {
             cheekDist = clamp(cheekDist * 1.3, 0.0, 1.0);
             albedo = mix(vec3(0.72, 0.42, 0.62), albedo, cheekDist);
 
-            cheeks = vec3(1.1, -0.36, -0.7);
+            cheeks = vec3(1.0, -0.36, -0.7);
             cheekDist = clamp(distance(cheeks, symIsect) * 1.5,0.0,1.0);
-            albedo = mix(vec3(0.56, 0.41, 0.51), albedo, cheekDist);
+            albedo = mix(vec3(0.36, 0.21, 0.31), albedo, cheekDist);
             
             vec3 temples = vec3(0.85, 1.1, -1.09);
             float templeDist = clamp(distance(temples, symIsect) * 1.5, 0.0, 1.0);
@@ -885,12 +932,6 @@ void main() {
             float angle = acos(dot(normalize(uv), vec3(1.0,0.0,0.0)));
             angle += pi;
             vec2 uvAngle = vec2(angle, uv.y);
-//
-//            if(fract(uv.y) > 0.1 && fract(uv.y) < 0.9) {
-//                if(abs(cos(angle * 6.3)) < 0.5) {
-//                    albedo = vec3(177.0,180.0,210.0) / 255.0;
-//                }
-//            }
             uvAngle.x = fract(-0.02 + 0.79 * uvAngle.x);
             Material dressMat = robePattern(uvAngle);
             vec3 patternNorm = calcRobeNormals(uvAngle);
@@ -899,11 +940,6 @@ void main() {
             ks = dressMat.ks;
             kd = dressMat.kd;
             cosPow = dressMat.cosPow;
-            
-            if (dressMat.displacement > 0.0001) {
-               // isect = raycast(u_Eye - normal * dressMat.displacement * 2.0, dir, 128);
-               // normal = calcNormals(isect.xyz);
-            }
 
         } else if (isect.w <= 6.0) {
             //  eyes
@@ -924,6 +960,8 @@ void main() {
             kd = mat.kd;
             albedo = mat.color;
             cosPow = mat.cosPow;
+        } else {
+            albedo = vec3(0.0);
         }
 
         for (int i = 0; i < 3; ++i) {

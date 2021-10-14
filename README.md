@@ -2,7 +2,7 @@
 
 ## Info
 - Lanqing Bao (lanqing)
-- Link:  http://seiseiko.github.io/hw03-advanced-raymarching/ (NOT WORKING)
+- Link:  https://seiseiko.github.io/hw03-advanced-raymarching/
 
 ## Screenshots
 ![](res1.gif)

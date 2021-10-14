@@ -1,47 +1,71 @@
-# CIS 566 Homework 3: Advanced Raymarched Scenes
+# CIS 566 Homework 3: Implicit Surfaces
 
-## Objective
-- Gain experience with signed distance functions
-- Experiment with animation curves
-- Create a presentable portfolio piece
-
-## Base Code
-
-You will copy your implementation of hw02 into your hw03 repository.
-
-## Assignment Requirements
-- __(35 points) Artwork Replication__ Your raymarched scene should attempt to replicate the appearance of your inspiration (include picture) with clear effort put into the replication.
-- __(25 points) Materials__ Your scene should be composed of at least three different materials. We define a material to be a surface reflection model combined with some base surface color; texturing is optional.
-- __(10 points) Lighting and Shadows__ Light your scene with at least three light sources. At least one of your light sources must cast shadows, and they should be soft shadows using the penumbra shadows algorithm we discussed in class. Consider following the "Key Light, Fill Light, GI Light" formulation from the in-class example.
-- __(20 points) Performance__ The frame rate of your scene must be at least 10FPS.
-- __(10 points)__ Following the specifications listed
-[here](https://github.com/pjcozzi/Articles/blob/master/CIS565/GitHubRepo/README.md),
-create your own README.md, renaming this file to INSTRUCTIONS.md. Don't worry
-about discussing runtime optimization for this project. Make sure your
-README contains the following information:
-  - Your name and PennKey
-  - Citation of any external resources you found helpful when implementing this
-  assignment.
-  - A link to your live github.io demo
-  - An explanation of the techniques you used to model and animate your scene.
-
-## Useful Links
-- [IQ's Article on SDFs](http://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm)
-- [IQ's Article on Smooth Blending](http://www.iquilezles.org/www/articles/smin/smin.htm)
-- [IQ's Article on Useful Functions](http://www.iquilezles.org/www/articles/functions/functions.htm)
-- [Breakdown of Rendering an SDF Scene](http://www.iquilezles.org/www/material/nvscene2008/rwwtt.pdf)
+- Author: Ashley Alexander-Lee
+- PennKey: asalexan
+- [Live Demo](https://asalexan.github.io/hw03-advanced-raymarching/)
 
 
-## Submission
-Commit and push to Github, then make a pull request on the hw03 repository with a title containing your name, and a comment containing a link to your live demo.
+![Header](images/hw3_header1.gif)
 
-## Inspiration
-- [Alien Corridor](https://www.shadertoy.com/view/4slyRs)
-- [The Evolution of Motion](https://www.shadertoy.com/view/XlfGzH)
-- [Fractal Land](https://www.shadertoy.com/view/XsBXWt)
-- [Voxel Edges](https://www.shadertoy.com/view/4dfGzs)
-- [Snail](https://www.shadertoy.com/view/ld3Gz2)
-- [Cubescape](https://www.shadertoy.com/view/Msl3Rr)
-- [Journey Tribute](https://www.shadertoy.com/view/ldlcRf)
-- [Stormy Landscape](https://www.shadertoy.com/view/4ts3z2)
-- [Generators](https://www.shadertoy.com/view/Xtf3Rn)
+In this project, I aimed to create a raymarched scene, replicating a screenshot from Sky: Children of Light by thatgamecompany.
+
+| Reference | Replication |
+| --------- | ----------- |
+| ![Reference](images/sky_ref2.png) | ![Comparison](images/compare2.png) |
+
+Demo / Installation
+===================
+Live demo: https://asalexan.github.io/hw02-raymarching-sdfs/
+
+To run locally:
+1. Clone this repo
+2. run `npm i`
+3. run `npm start`
+
+Process
+======
+I first started with a markup of the screenshot I wanted to replicate, which you can see below:
+![Mockup](images/sky_mockup.jpg)
+
+In order to produce the initial geometry and lambertian shading, I added the following elements:
+- **Forest SDF:** I created a ForestSDF, which places trees (composed of TreeSDFs) in the scene given a list of Tree structs with varying positions, radii, and heights. The trees themselves are cylinders smoothblended with cones at the bases. The trees are deformed slightly with perlin noise to make the shapes look more natural. 
+- **Temple SDF:** The TempleSDF is composed of columns, a base, and a roof. There is one ColumnSDF, which is reflected across the x and z axes by taking the absolute value of the input point, creating four symmetric columns. The rest of the temple is built out of rounded box SDFs. 
+- **Terrain Height Field:** I created a function f(x, z) that returns a height to be compared against the query point y. The ground is deformed with perlin noise to create hills, and the path is just a sine wave. If the query point resides close to or inside the path in the x direction, it's colored appropriately, and the height is interpolated down to a flat terrain height.  
+- **Distance Fog:** There are two different color interpolations done according to z-distance. The first (closest) is interpolation between the lambert color and the blue fog color. The second, for farther objects, is interpolation between alpha 1.0 and alpha 0.0 to simulate objects fading into the distance.
+
+I added some additional elements for this iteration of the project:
+- **Candle SDF** - I added candles to the scene by creating a candleSDF, which is composed of a cylindrical base and a smoothblended flame. Much like the trees, I created a Candle struct that holds information like: position, height, radius, light radius, and whether the candle is off or on. I color the flame using the "Transparency Technique" I describe in the next section.
+- **Mushroom SDF** - The mushroomSDF defines the signed distance field for the sake of sphere marching, *not* for material matching. The color of the magical mushroom is determined by my transparency trick, described later. I add sparkles as a post-processing effect, and I set a flag, isMushroom, to determine whether the post-process effect is applied to a particular location. The sparkle size is randomized according to the nearest Worley cell center.
+- **Branch SDF** - I added a few angular branches to match the reference,and the branchSDF is composed of a smoothblended cylinder for the base and cone for the branch.
+- **Soft Shadows** - I implemented penumbra shadows, but was not happy with the aesthetic effect. Here is a screenshot of the result:
+
+![Shadows](images/shadows2.png)
+
+Transparency Technique
+======================
+To achieve semi-transparency for the candle flame and mushroom tops, I had to get a little creative. If the ray hits a mushroom (or candle flame), it sets a flag and *does not* update the minimum SDF, allowing the ray to continue on and hit the object behind it. If the ray does not hit a mushroom, the minimum SDF is calculated as usual, which is important to continue the sphere marching process. 
+
+I also keep track of a distance from the center of the mushroom for interpolation later. To do this, I first have to check if the mushroom has been hit before. If it hasn't, it updates the distance. This distance is later used to interpolate between complete transparency (in the middle of the mushroom) to mushroom color (on the rims of the mushrooms).
+
+Resources
+===========
+I used the following resources as reference:
+
+[SDFs, SDF Symmetry](https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm)
+
+[Height Fields](https://www.iquilezles.org/www/articles/terrainmarching/terrainmarching.htm)
+
+Bloopers
+========
+
+#### Backwards Bounding Height
+![Blooper 1](images/hw3_bloopers/blooper1.png)
+
+#### Raining Infinite Grass
+![Blooper 2](images/hw3_bloopers/blooper2.png)
+
+#### Impressionist Trees
+![Blooper 3](images/hw3_bloopers/blooper3.png)
+
+#### Underwater Forest
+![Blooper 4](images/hw3_bloopers/blooper4.png)

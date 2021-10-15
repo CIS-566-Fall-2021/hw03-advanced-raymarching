@@ -12,18 +12,25 @@ const int MAX_RAY_STEPS = 100;
 const float FOV = 45.0;
 const float EPSILON = 0.0001;
 
+#define STAR_ANIM_SPEED .5
+
 const vec3 EYE = vec3(0.0, 0.0, 10.0);
 const vec3 ORIGIN = vec3(0.0, 0.0, 0.0);
 const vec3 WORLD_UP = vec3(0.0, 1.0, 0.0);
 const vec3 WORLD_RIGHT = vec3(-1.0, 0.0, 0.0);
 const vec3 WORLD_FORWARD = vec3(0.0, 0.0, 1.0);
-const vec3 LIGHT_POS = vec3(-1.0, 1.0, 2.0);
-const vec3 STARLIGHT_POS = vec3(0.0, -.8, -.1);
+const vec3 LIGHT_POS = vec3(-.3, 1.0, -1.0);
 
-#define STAR_MAT 1
+#define SHAKING vec3(sin(u_Time * .2 * STAR_ANIM_SPEED) * .1, cos(u_Time * .4 * STAR_ANIM_SPEED) * .1, sin(((u_Time + 100.0) * STAR_ANIM_SPEED) * .3))
+#define STARLIGHT_BACKLIGHT_POS vec3(0.0, 0.0, -1.0)
+#define STARLIGHT_GLOW_POS vec3(-0.1,-1., 0.05) - SHAKING
+
+#define STAR_ARM_MAT 1
 #define FEET_MAT 2
 #define BODY_MAT 3
 #define EYE_MAT 4
+#define ARM_MAT 5
+#define STAR_CENTER_MAT 6
 
 struct Ray 
 {
@@ -149,7 +156,7 @@ float kirbyBounce(float val) {
 #define KIRBY_ROT_VAL_Z .0
 #define KIRBY_ANIM_SPEED .7
 
-float starSDF(vec3 queryPos) 
+SDF starSDF(vec3 queryPos) 
 {   
     float scale = .6;
     float starRot = 1.25;
@@ -180,7 +187,10 @@ float starSDF(vec3 queryPos)
     star = smin(star, arm5, .02);
     star = smin(star, centerBulge, .1);
 
-    return opRound(star, .1);
+    if (centerBulge <= EPSILON + .125) {
+        return SDF(opRound(star, .1), STAR_CENTER_MAT);
+    }
+    return SDF(opRound(star, .1), STAR_ARM_MAT);
 }
 
 SDF kirbyStarSDF(vec3 queryPos) {
@@ -212,17 +222,14 @@ SDF kirbyStarSDF(vec3 queryPos) {
 
     float kirbyBody = sdEllipsoid(bodyPos, bodyScale);
 
-    // float eyeTest = sdCapsule(opCheapBend(queryPos - vec3(0.5, 0.0, 0.0)), vec3(0.0, .0, 0.0), vec3(.5, 0.0, 0.0), .1);
-    // return SDF(eyeTest, 4);
     float kirbyLeftEye = sdVertCapsule(opCheapBend(leftEyePos), .25 + bodyDeform, .06);
     float kirbyRightEye = sdVertCapsule(opCheapBend(rightEyePos), .25 + bodyDeform, .06);
-    //float kirbyRightEye = sdEllipsoid(rightEyePos, eyeScale);
     float kirbyDownArm = sdEllipsoid(armDownPos, armScale);
     float kirbyUpArm = sdEllipsoid(armUpPos, armScale);
     float kirbyLeftFoot = sdRoundCone(leftFootPos, .22, .15, .2);
     float kirbyRightFoot = sdRoundCone(rightFootPos, .22, .15, .2);
     
-    float star = starSDF(feetBasePos - starOffset);
+    SDF star = starSDF(feetBasePos - starOffset);
 
     float kirby = smin(kirbyBody, kirbyDownArm, .01);
     kirby = smin(kirby, kirbyLeftFoot, .01);
@@ -230,10 +237,10 @@ SDF kirbyStarSDF(vec3 queryPos) {
     kirby = opUnion(kirby, kirbyLeftEye);
     kirby = opUnion(kirby, kirbyRightEye);
     kirby = smin(kirby, kirbyUpArm, .01);
-    kirby = opUnion(kirby, star);
+    kirby = opUnion(kirby, star.t);
 
-    if (star <= EPSILON) {
-        return SDF(kirby, STAR_MAT);
+    if (star.t <= EPSILON) {
+        return star;
     }
     if (kirbyLeftFoot <= EPSILON || kirbyRightFoot <= EPSILON) {
         return SDF(kirby, FEET_MAT);
@@ -241,17 +248,18 @@ SDF kirbyStarSDF(vec3 queryPos) {
     if (kirbyLeftEye <= EPSILON || kirbyRightEye <= EPSILON) {
         return SDF(kirby, EYE_MAT);
     }
+    if (kirbyDownArm <= EPSILON || kirbyUpArm <= EPSILON) {
+        return SDF(kirby, ARM_MAT);
+    }
     return SDF(kirby, BODY_MAT);
 }
 
-#define STAR_ANIM_SPEED .5
 
 SDF sceneSDF(vec3 queryPos) 
 {
     float boundSphere = sdSphere(queryPos, 3.0);
     if (boundSphere <= EPSILON) {
-        vec3 shaking = vec3(sin(u_Time * .2 * STAR_ANIM_SPEED) * .1, cos(u_Time * .4 * STAR_ANIM_SPEED) * .1, sin(((u_Time + 100.0) * STAR_ANIM_SPEED) * .3));
-        SDF kirbyStar = kirbyStarSDF(queryPos + shaking);
+        SDF kirbyStar = kirbyStarSDF(queryPos + SHAKING);
         return kirbyStar;
     }
     return SDF(1.0, 0);
@@ -333,33 +341,82 @@ float hardShadow(vec3 rayOrigin, vec3 rayDirection, float maxT) {
     return 1.0;
 }
 
-vec3 rgbRemap(vec3 rgb) {
+vec3 rgb(vec3 rgb) {
     return rgb / 255.0;
 }
 
+vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
+
+//	Classic Perlin 2D Noise 
+//	by Stefan Gustavson
+//
+vec2 fade(vec2 t) {return t*t*t*(t*(t*6.0-15.0)+10.0);}
+
+float cnoise(vec2 P){
+  vec4 Pi = floor(P.xyxy) + vec4(0.0, 0.0, 1.0, 1.0);
+  vec4 Pf = fract(P.xyxy) - vec4(0.0, 0.0, 1.0, 1.0);
+  Pi = mod(Pi, 289.0); // To avoid truncation effects in permutation
+  vec4 ix = Pi.xzxz;
+  vec4 iy = Pi.yyww;
+  vec4 fx = Pf.xzxz;
+  vec4 fy = Pf.yyww;
+  vec4 i = permute(permute(ix) + iy);
+  vec4 gx = 2.0 * fract(i * 0.0243902439) - 1.0; // 1/41 = 0.024...
+  vec4 gy = abs(gx) - 0.5;
+  vec4 tx = floor(gx + 0.5);
+  gx = gx - tx;
+  vec2 g00 = vec2(gx.x,gy.x);
+  vec2 g10 = vec2(gx.y,gy.y);
+  vec2 g01 = vec2(gx.z,gy.z);
+  vec2 g11 = vec2(gx.w,gy.w);
+  vec4 norm = 1.79284291400159 - 0.85373472095314 * 
+    vec4(dot(g00, g00), dot(g01, g01), dot(g10, g10), dot(g11, g11));
+  g00 *= norm.x;
+  g01 *= norm.y;
+  g10 *= norm.z;
+  g11 *= norm.w;
+  float n00 = dot(g00, vec2(fx.x, fy.x));
+  float n10 = dot(g10, vec2(fx.y, fy.y));
+  float n01 = dot(g01, vec2(fx.z, fy.z));
+  float n11 = dot(g11, vec2(fx.w, fy.w));
+  vec2 fade_xy = fade(Pf.xy);
+  vec2 n_x = mix(vec2(n00, n01), vec2(n10, n11), fade_xy.x);
+  float n_xy = mix(n_x.x, n_x.y, fade_xy.y);
+  return 2.3 * n_xy;
+}
+
+// Self-written referencing noise 2021 slide deck. https://cis566-procedural-graphics.github.io/noise-2021.pdf
+float fbm(float nOctaves, vec2 pos) {
+    float total = 0.;
+    float persistence = 1.f / 2.f;
+
+    for (float i = 0.f; i < nOctaves; ++i) {
+        float frequency = pow(2.f, i);
+        float amplitude = pow(persistence, i);
+
+        total += amplitude * cnoise(pos * frequency);
+    }
+    return total;
+}
+
 // Adjust these to alter where the subsurface glow shines through and how brightly
-const float FIVETAP_K = 2.0;
-const float AO_DIST = 0.085;
+const float FIVETAP_K = 1.0;
+const float AO_DIST = 0.01;
 
 // The larger the DISTORTION, the smaller the glow
-const float DISTORTION = 0.2;
+const float DISTORTION = 0.5;
 // The higher GLOW is, the smaller the glow of the subsurface scattering
-const float GLOW = 6.0;
+const float GLOW = 2.3;
 // The higher the BSSRDF_SCALE, the brighter the scattered light
-const float BSSRDF_SCALE = 3.0;
+const float BSSRDF_SCALE = 2.0;
 // Boost the shadowed areas in the subsurface glow with this
-const float AMBIENT = 0.0;
+const float AMBIENT = 0.05;
 // Toggle this to affect how easily the subsurface glow propagates through an object
-#define ATTENUATION 0
 
 float subsurface(vec3 lightDir, vec3 normal, vec3 viewVec, float thickness) {
     vec3 scatteredLightDir = lightDir + normal * DISTORTION;
     float lightReachingEye = pow(clamp(dot(viewVec, -scatteredLightDir), 0.0, 1.0), GLOW) * BSSRDF_SCALE;
-    float attenuation = 1.0;
-    #if ATTENUATION
-    attenuation = max(0.0, dot(normal, lightDir) + dot(viewVec, -lightDir));
-    #endif
-	float totalLight = attenuation * (lightReachingEye + AMBIENT) * thickness;
+	float totalLight = (lightReachingEye + AMBIENT) * thickness;
     return totalLight;
 }
 
@@ -378,7 +435,7 @@ float lambertian(vec3 lightDir, vec3 normal) {
 
 #define EYE_SHINY 16.0
 const vec3 eyeLightColor = vec3(1.0, 1.0, 1.0);
-const float eyeLightPower = 10.0;
+const float eyeLightPower = 20.0;
 const vec3 eyeSpecColor = vec3(1.0, 1.0, 1.0);
 
 vec3 eyeReflection(vec3 normal, vec3 lightDir, vec3 pos, vec3 color) {
@@ -402,48 +459,68 @@ vec3 eyeReflection(vec3 normal, vec3 lightDir, vec3 pos, vec3 color) {
     return colorLinear;
 }
 
-#define STAR_SHINY 11.0
-const vec3 starLightColor = vec3(1.0, 1.0, 1.0);
-const float starLightPower = 5.0;
-const vec3 starSpecColor = vec3(1.0, 1.0, 1.0);
+#define STAR_SHINY 100.0
+const float starLightPower = 9.0;
 
-vec3 starReflection(vec3 normal, vec3 lightDir, vec3 pos, vec3 color) {
+float starReflection(vec3 normal, vec3 lightDir, vec3 pos) {
     float distance = length(lightDir);
     distance = distance * distance;
     lightDir = normalize(lightDir);
     float specular = 0.0;
 
-    vec3 viewDir = normalize(-pos);
+    vec3 viewDir = normalize(vec3(-0.19, 1.0, 1.0));
 
     // this is blinn phong
     vec3 halfDir = normalize(lightDir + viewDir);
     float specAngle = max(dot(halfDir, normal), 0.0);
     specular = pow(specAngle, STAR_SHINY);
-    vec3 diffuseColor = color;
-    vec3 colorLinear = diffuseColor + starSpecColor * specular * starLightColor * starLightPower / distance;
+    float colorLinear = specular * starLightPower / distance;
     return colorLinear;
 }
 
 vec3 getMatColor(int matID, Intersection isect)
 {
-    float shading = softShadow(isect.position, normalize(LIGHT_POS - isect.position), 4., 4.0);
+    float shading;
+    vec3 starColor = rgb(vec3(255.0, 240.0, 94.0));
+    vec3 starGlowColor = rgb(vec3(255.0, 246.0, 156.0));
+    vec3 starLightGlowPos = STARLIGHT_GLOW_POS - isect.position;
+    float bodyStarGlow = lambertian(starLightGlowPos, isect.normal) / pow(length(starLightGlowPos), 1.5);
+    float armStarGlow = lambertian(starLightGlowPos, isect.normal) / (length(starLightGlowPos) * 2.0);
+    float thickness;
+    float starSubsurface;
+    vec3 starBaseColor;
     switch (matID) {
-        case STAR_MAT:
-            float thickness = fiveTapAO(isect.position, -isect.normal, FIVETAP_K);
-            vec3 starColor = rgbRemap(vec3(255.0, 240.0, 94.0));
-            return starReflection(isect.normal, LIGHT_POS - isect.position, isect.position, starColor);
-            return rgbRemap(vec3(255.0, 240.0, 94.0));// * subsurface(STARLIGHT_POS, isect.normal, normalize(u_Eye - isect.position), thickness);
-        case FEET_MAT:
-            return rgbRemap(vec3(255.0, 94.0, 199.0)) * shading;
+        case STAR_ARM_MAT:
+            thickness = fiveTapAO(isect.position, -isect.normal, FIVETAP_K);
+            starSubsurface = clamp(subsurface(STARLIGHT_BACKLIGHT_POS, isect.normal, normalize(u_Eye - isect.position), thickness), 0.3, 1.0);
+            return mix(vec3(1.2), starColor, starSubsurface);
+        
+        case STAR_CENTER_MAT:
+            thickness = fiveTapAO(isect.position, -isect.normal, FIVETAP_K);
+            float starLerp = starReflection(isect.normal, (isect.position + vec3(0.0, 2.5, 0.01)) - isect.position, isect.position + vec3(0.1, 0.0, -.5) + SHAKING);
+            starSubsurface = clamp(subsurface(STARLIGHT_BACKLIGHT_POS, isect.normal, normalize(u_Eye - isect.position), thickness), 0.3, 1.0);
+            starBaseColor = mix(vec3(1.2), starColor, starSubsurface);
+            return mix(starBaseColor, vec3(1.0), starLerp);
+        
         case BODY_MAT:
-            //shading = hardShadow(isect.position, normalize(LIGHT_POS - isect.position), 10.0);
-            return rgbRemap(vec3(255.0, 168.0, 225.0)) * shading;
+            shading = softShadow(isect.position, normalize(LIGHT_POS - isect.position), 4., 4.0);
+            float starGlow = lambertian(STARLIGHT_GLOW_POS - isect.position, isect.normal);
+            return mix(rgb(vec3(255.0, 168.0, 225.0)) * shading, starGlowColor, bodyStarGlow);
+        
+        case FEET_MAT:
+            shading = softShadow(isect.position, normalize(LIGHT_POS - isect.position), 4., 4.0);
+            return mix(rgb(vec3(255.0, 94.0, 199.0)) * shading, starGlowColor, bodyStarGlow);
+        
+        case ARM_MAT:
+            shading = softShadow(isect.position, normalize(LIGHT_POS - isect.position), 4., 4.0);
+            return mix(rgb(vec3(255.0, 168.0, 225.0)) * shading, starGlowColor, armStarGlow);
+        
         case EYE_MAT:
-            vec3 eyeColor = rgbRemap(vec3(0.0, 32.0, 89.0));
-            return eyeReflection(isect.normal, LIGHT_POS - isect.position, isect.position, eyeColor);
+            vec3 eyeColor = rgb(vec3(0.0, 8.0, 46.0));
+            //return eyeReflection(isect.normal, LIGHT_POS - isect.position, isect.position, eyeColor);
+            return eyeColor;
     }
     return vec3(0.0);
-    
 }
 
 vec3 getSceneColor(vec2 uv)
@@ -453,22 +530,13 @@ vec3 getSceneColor(vec2 uv)
     {
         int matID = intersection.material_id;
         return getMatColor(matID, intersection);
-        float shadows = hardShadow(intersection.position, normalize(LIGHT_POS - intersection.position), 10.0);
-        vec4 diffuseColor = vec4(1.0);
-
-        // Calculate the diffuse term for Lambert shading
-        float diffuseTerm = dot(normalize(intersection.normal), normalize(LIGHT_POS));
-        // Avoid negative lighting values
-        diffuseTerm = clamp(diffuseTerm, 0.0, 1.0);
-
-        float ambientTerm = 0.2;
-
-        float lightIntensity = diffuseTerm + ambientTerm;   //Add a small float value to the color multiplier
-                                                            //to simulate ambient lighting. This ensures that faces that are not
-                                                            //lit by our point light are not completely black.
-        return vec3(diffuseColor.rgb * lightIntensity) * shadows;
     }
-    return vec3(0.0, 1.0, 1.0);
+    float cloudBound = (fbm(7.0, vec2((uv.x - u_Time * .15) * .3, (uv.y + sin(u_Time * .02)) * .5)) + 1.338) / 2.638;
+    float baseNoise = (fbm(7.0, vec2(uv.x - u_Time * .15, uv.y + sin(u_Time * .02))) + 1.338) / 2.638; // fbm mapped from 0 to 1
+    vec3 cloudColor = vec3(1.0);
+    vec3 skyColor = rgb(vec3(56.0, 46.0, 33.0));
+    return mix(skyColor, skyColor + cloudColor * baseNoise, smoothstep(.4, .5, cloudBound));
+    //return vec3(0.0, 1.0, 1.0);
 }
 
 void main() {

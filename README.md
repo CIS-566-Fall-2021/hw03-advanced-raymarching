@@ -45,7 +45,7 @@ since timing will be so critical in this project, at least someday.
 
 # Status
 <p align="center">
-  <img src="https://en.wiktionary.org/wiki/piano#/media/File:Pianodroit.jpg">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/5/56/Pianodroit.jpg">
 </p>
 <p align="center">(Rough) inspiration picture.</p>
 

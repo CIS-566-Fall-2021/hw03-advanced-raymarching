@@ -3,7 +3,7 @@ Author: Nathaniel Korzekwa
 
 PennKey: korzekwa
 
-[Live Demo](https://ciscprocess.github.io/hw02-raymarching-sdfs/)
+[Live Demo](https://ciscprocess.github.io/hw03-advanced-raymarching/)
 
 # Overview and Goal
 I didn't get to make the piano play music. It was a nice goal but as it turns out,

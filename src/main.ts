@@ -94,7 +94,7 @@ function main() {
     requestAnimationFrame(tick);
   }
 
-  const resDiv: number = 1;
+  const resDiv: number = 2;
   window.addEventListener('resize', function() {
     let width: number = window.innerWidth / resDiv;
     let height: number = window.innerHeight / resDiv;

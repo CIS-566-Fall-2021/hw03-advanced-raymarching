@@ -19,9 +19,11 @@ const vec3 ORIGIN = vec3(0.0, 0.0, 0.0);
 const vec3 WORLD_UP = vec3(0.0, 1.0, 0.0);
 const vec3 WORLD_RIGHT = vec3(-1.0, 0.0, 0.0);
 const vec3 WORLD_FORWARD = vec3(0.0, 0.0, 1.0);
-const vec3 LIGHT_POS = vec3(-.3, 1.0, -1.0);
 
 #define SHAKING vec3(sin(u_Time * .2 * STAR_ANIM_SPEED) * .1, cos(u_Time * .4 * STAR_ANIM_SPEED) * .1, sin(((u_Time + 100.0) * STAR_ANIM_SPEED) * .3))
+
+#define BACKLIGHT_POS vec3(1.5, 2.0, -.75) - SHAKING
+
 #define STARLIGHT_BACKLIGHT_POS vec3(0.0, 0.0, -1.0)
 #define STARLIGHT_GLOW_POS vec3(-0.1,-1., 0.05) - SHAKING
 
@@ -31,6 +33,7 @@ const vec3 LIGHT_POS = vec3(-.3, 1.0, -1.0);
 #define EYE_MAT 4
 #define ARM_MAT 5
 #define STAR_CENTER_MAT 6
+#define MOUTH_MAT 7
 
 struct Ray 
 {
@@ -119,6 +122,10 @@ float smin( float a, float b, float k )
 }
 
 float opUnion( float d1, float d2 ) { return min(d1,d2); }
+
+float opSmoothSub( float d1, float d2, float k ) {
+    float h = clamp( 0.5 - 0.5*(d2+d1)/k, 0.0, 1.0 );
+    return mix( d2, -d1, h ) + k*h*(1.0-h); }
 
 vec3 opCheapBend( vec3 p )
 {
@@ -216,6 +223,8 @@ SDF kirbyStarSDF(vec3 queryPos) {
     vec3 leftFootPos = rotateZ(rotateX(feetBasePos - normalize(vec3(-1., -.9, 0.2)) * .6, -2.3), -.9);
     vec3 rightFootPos = rotateZ(rotateX(feetBasePos - normalize(vec3(1., -.9, 0.2)) * .6, -2.3), .9);
 
+    vec3 mouthPos = bodyPos - normalize(vec3(0.0, -.75, 1.0)) * .65;
+
     vec3 bodyScale = vec3(0.65, 0.6 + bodyDeform, 0.65);
     vec3 eyeScale = vec3(.15, .2, .05);
     vec3 armScale = vec3(.15, .15, .3);
@@ -228,8 +237,9 @@ SDF kirbyStarSDF(vec3 queryPos) {
     float kirbyUpArm = sdEllipsoid(armUpPos, armScale);
     float kirbyLeftFoot = sdRoundCone(leftFootPos, .22, .15, .2);
     float kirbyRightFoot = sdRoundCone(rightFootPos, .22, .15, .2);
+    float kirbyMouth = sdSphere(mouthPos, .1);
     
-    SDF star = starSDF(feetBasePos - starOffset);
+    //SDF star = starSDF(feetBasePos - starOffset);
 
     float kirby = smin(kirbyBody, kirbyDownArm, .01);
     kirby = smin(kirby, kirbyLeftFoot, .01);
@@ -237,11 +247,12 @@ SDF kirbyStarSDF(vec3 queryPos) {
     kirby = opUnion(kirby, kirbyLeftEye);
     kirby = opUnion(kirby, kirbyRightEye);
     kirby = smin(kirby, kirbyUpArm, .01);
-    kirby = opUnion(kirby, star.t);
+    kirby = opSmoothSub(kirbyMouth, kirby, .01);
+    //kirby = opUnion(kirby, star.t);
 
-    if (star.t <= EPSILON) {
-        return star;
-    }
+    // if (star.t <= EPSILON) {
+    //     return star;
+    // }
     if (kirbyLeftFoot <= EPSILON || kirbyRightFoot <= EPSILON) {
         return SDF(kirby, FEET_MAT);
     }
@@ -250,6 +261,9 @@ SDF kirbyStarSDF(vec3 queryPos) {
     }
     if (kirbyDownArm <= EPSILON || kirbyUpArm <= EPSILON) {
         return SDF(kirby, ARM_MAT);
+    }
+    if (kirbyMouth <= EPSILON) {
+        return SDF(kirby, MOUTH_MAT);
     }
     return SDF(kirby, BODY_MAT);
 }
@@ -503,22 +517,25 @@ vec3 getMatColor(int matID, Intersection isect)
             return mix(starBaseColor, vec3(1.0), starLerp);
         
         case BODY_MAT:
-            shading = softShadow(isect.position, normalize(LIGHT_POS - isect.position), 4., 4.0);
+            shading = softShadow(isect.position, normalize(BACKLIGHT_POS - isect.position), 4., 4.0);
             float starGlow = lambertian(STARLIGHT_GLOW_POS - isect.position, isect.normal);
             return mix(rgb(vec3(255.0, 168.0, 225.0)) * shading, starGlowColor, bodyStarGlow);
         
         case FEET_MAT:
-            shading = softShadow(isect.position, normalize(LIGHT_POS - isect.position), 4., 4.0);
+            shading = softShadow(isect.position, normalize(BACKLIGHT_POS - isect.position), 4., 4.0);
             return mix(rgb(vec3(255.0, 94.0, 199.0)) * shading, starGlowColor, bodyStarGlow);
         
         case ARM_MAT:
-            shading = softShadow(isect.position, normalize(LIGHT_POS - isect.position), 4., 4.0);
+            shading = softShadow(isect.position, normalize(BACKLIGHT_POS - isect.position), 4., 4.0);
             return mix(rgb(vec3(255.0, 168.0, 225.0)) * shading, starGlowColor, armStarGlow);
         
         case EYE_MAT:
             vec3 eyeColor = rgb(vec3(0.0, 8.0, 46.0));
             //return eyeReflection(isect.normal, LIGHT_POS - isect.position, isect.position, eyeColor);
             return eyeColor;
+        
+        case MOUTH_MAT:
+            return vec3(0.0);
     }
     return vec3(0.0);
 }

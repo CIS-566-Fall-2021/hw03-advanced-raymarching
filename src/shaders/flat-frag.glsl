@@ -531,12 +531,24 @@ vec3 getSceneColor(vec2 uv)
         int matID = intersection.material_id;
         return getMatColor(matID, intersection);
     }
+    vec3 skyColor = rgb(vec3(56.0, 46.0, 33.0));
     float cloudBound = (fbm(7.0, vec2((uv.x - u_Time * .15) * .3, (uv.y + sin(u_Time * .02)) * .5)) + 1.338) / 2.638;
     float baseNoise = (fbm(7.0, vec2(uv.x - u_Time * .15, uv.y + sin(u_Time * .02))) + 1.338) / 2.638; // fbm mapped from 0 to 1
     vec3 cloudColor = vec3(1.0);
-    vec3 skyColor = rgb(vec3(56.0, 46.0, 33.0));
-    return mix(skyColor, skyColor + cloudColor * baseNoise, smoothstep(.4, .5, cloudBound));
-    //return vec3(0.0, 1.0, 1.0);
+    vec3 bgCol = mix(skyColor, skyColor + cloudColor * baseNoise, smoothstep(.4, .5, cloudBound));
+
+    float streakBound = sin(-(uv.y + cos(u_Time * .01 + uv.x) * .1) * 5.0 + cos(-uv.y * .5 * 5.0)) + cos(u_Time * .4) * .04;
+    if (streakBound > -.8 && streakBound < 0.3) {
+        float distAcross = -cos(uv.y + u_Time * .05) * 2.0 * uv.y + uv.x + 2.5 + sin((u_Time + uv.y) * .025) * .5 + cos(u_Time * .12) * .05;
+        if (distAcross > 1.0) {
+            vec3 starColor = rgb(vec3(255.0, 240.0, 94.0));
+            vec3 lightColor = mix(vec3(1.0), starColor, pow(((streakBound + .25) * 4.0), 2.0));
+            vec3 mixEdge1 = mix(bgCol, bgCol + lightColor, gain(smoothstep(-.8, -.5, streakBound), .7));
+            vec3 mixEdge2 = mix(mixEdge1, bgCol, gain(smoothstep(0.0, .3, streakBound), .7));
+            return mixEdge2;
+        }
+    }
+    return bgCol;
 }
 
 void main() {

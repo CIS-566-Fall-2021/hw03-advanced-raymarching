@@ -17,7 +17,7 @@ precision highp float;
 #define SKY_FILL_LIGHT vec3(0.7, 0.2, 0.7) * 0.2
 // Faking global illumination by having sunlight
 // bounce horizontally only, at a lower intensity
-#define SUN_AMBIENT_LIGHT vec3(0.6, 0.4, 0.9) * 0.2
+#define SUN_AMBIENT_LIGHT rgb(125.0, 182.0, 240.0) * 0.15
 #define GAMMA 1
 
 uniform vec3 u_Eye, u_Ref, u_Up;
@@ -65,6 +65,72 @@ struct hitObj
     float distance_t;
     int material_id;
 };
+
+vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
+
+float rand3(vec3 st) {
+    float p1 = fract(sin(dot(st.xy,
+                        vec2(12.9898,78.233)))
+                 * 43758.5453123);
+    float p2 = fract(sin(dot(st.yz,
+                        vec2(12.9898,78.233)))
+                 * 43758.5453123);;
+    return fract(sin(dot(vec2(p1, p2),
+                        vec2(12.9898,78.233)))
+                 * 43758.5453123);
+}
+
+//    Classic Perlin 2D Noise 
+//    by Stefan Gustavson
+//
+vec2 fade(vec2 t) {return t*t*t*(t*(t*6.0-15.0)+10.0);}
+
+float cnoise(vec2 P){
+    vec4 Pi = floor(P.xyxy) + vec4(0.0, 0.0, 1.0, 1.0);
+    vec4 Pf = fract(P.xyxy) - vec4(0.0, 0.0, 1.0, 1.0);
+    Pi = mod(Pi, 289.0); // To avoid truncation effects in permutation
+    vec4 ix = Pi.xzxz;
+    vec4 iy = Pi.yyww;
+    vec4 fx = Pf.xzxz;
+    vec4 fy = Pf.yyww;
+    vec4 i = permute(permute(ix) + iy);
+    vec4 gx = 2.0 * fract(i * 0.0243902439) - 1.0; // 1/41 = 0.024...
+    vec4 gy = abs(gx) - 0.5;
+    vec4 tx = floor(gx + 0.5);
+    gx = gx - tx;
+    vec2 g00 = vec2(gx.x,gy.x);
+    vec2 g10 = vec2(gx.y,gy.y);
+    vec2 g01 = vec2(gx.z,gy.z);
+    vec2 g11 = vec2(gx.w,gy.w);
+    vec4 norm = 1.79284291400159 - 0.85373472095314 * 
+        vec4(dot(g00, g00), dot(g01, g01), dot(g10, g10), dot(g11, g11));
+    g00 *= norm.x;
+    g01 *= norm.y;
+    g10 *= norm.z;
+    g11 *= norm.w;
+    float n00 = dot(g00, vec2(fx.x, fy.x));
+    float n10 = dot(g10, vec2(fx.y, fy.y));
+    float n01 = dot(g01, vec2(fx.z, fy.z));
+    float n11 = dot(g11, vec2(fx.w, fy.w));
+    vec2 fade_xy = fade(Pf.xy);
+    vec2 n_x = mix(vec2(n00, n01), vec2(n10, n11), fade_xy.x);
+    float n_xy = mix(n_x.x, n_x.y, fade_xy.y);
+    return 2.3 * n_xy;
+}
+
+// Self-written referencing noise 2021 slide deck. https://cis566-procedural-graphics.github.io/noise-2021.pdf
+float fbm(float nOctaves, vec2 pos) {
+    float total = 0.;
+    float persistence = 1.f / 2.f;
+
+    for (float i = 0.f; i < nOctaves; ++i) {
+        float frequency = pow(2.f, i);
+        float amplitude = pow(persistence, i);
+
+        total += amplitude * cnoise(pos * frequency);
+    }
+    return total;
+}
 
 float dot2( in vec2 v ) { return dot(v,v); }
 float dot2( in vec3 v ) { return dot(v,v); }
@@ -242,19 +308,12 @@ float joe(vec3 queryPos, vec3 pos) {
     return joe;
 }
 
-vec3 computeMat(int mat_id, vec3 p, vec3 n) {
-    switch(mat_id) {
-        default:
-        return SUN_AMBIENT_LIGHT;
-    }
-}
-
 hitObj sceneSDF(vec3 queryPos)
 {
 
-    hitObj obj = hitObj(-1.f, -1);
+    hitObj obj = hitObj(-1.f, MAT_SKY);
 
-    float boundingBoxHorizontal = sdBox(queryPos, vec3(30.0, 30.0, 30.0));
+    float boundingBoxHorizontal = sdBox(queryPos - vec3(0.0, 2.0, 0.0), vec3(30.0, 20.0, 28.0));
     if (boundingBoxHorizontal > EPSILON) {
         obj.distance_t = 10000.0;
         return obj;
@@ -393,6 +452,133 @@ hitObj sceneSDF(vec3 queryPos)
     return obj;
 }
 
+hitObj shadowSceneSDF(vec3 queryPos)
+{
+
+    hitObj obj = hitObj(-1.f, MAT_SKY);
+
+    float boundingBoxHorizontal = sdBox(queryPos, vec3(30.0, 30.0, 30.0));
+    if (boundingBoxHorizontal > EPSILON) {
+        obj.distance_t = 10000.0;
+        return obj;
+    }
+
+    float groundY = -2.0;
+    float ground = planeSDF(queryPos - vec3(0.0, groundY, 0.0), 0.0f);
+    
+    float finalDist = ground;
+    int finalMat = MAT_GROUND;
+
+    float hillCenterRad = 20.0;
+    float hillCenter = hemisphere(queryPos - vec3(0.0, groundY - hillCenterRad / 2.0, hillCenterRad + 20.0), hillCenterRad);
+    if (hillCenter < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    finalDist = smoothUnion(finalDist, hillCenter, 0.25f);
+
+    float hillLeftRad1 = 15.0;
+    float hillLeft1 = hemisphere(queryPos - vec3(-10.0 - 3.0, groundY - 11.0, 19.0 + 4.5), hillLeftRad1);
+    if (hillLeft1 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    // finalDist = smoothUnion(finalDist, hillLeft1, 0.25f);
+
+    float hillLeftBudRad1 = 12.5;
+    float hillLeftBud1 = hemisphere(queryPos - vec3(-10.0 - 3.0, groundY - 9.2, 13.5 + 4.), hillLeftBudRad1);
+    if (hillLeftBud1 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    finalDist = smoothUnion(finalDist, smin(hillLeft1, hillLeftBud1, 0.25), 0.25f);
+
+    float hillLeftRad2 = 12.0;
+    float hillLeft2 = hemisphere(queryPos - vec3(-11.0 - 3.0, groundY - 9.5, 8.5), hillLeftRad2);
+    if (hillLeft2 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    // finalDist = smoothUnion(finalDist, hillLeft2, 0.25f);
+
+    float hillLeftRadBud2 = 8.0;
+    float hillLeftBud2 = hemisphere(queryPos - vec3(-8.7 - 3.0, groundY - 5.61, 3.5), hillLeftRadBud2);
+    if (hillLeftBud2 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    finalDist = smoothUnion(finalDist, smin(hillLeft2, hillLeftBud2, 0.25f), 0.25f);
+
+    float hillLeftBackRad1 = 10.0;
+    float hillLeftBack1 = hemisphere(queryPos - vec3(-26.45, groundY - 5.0, 21.0), hillLeftBackRad1);
+    if (hillLeftBack1 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    finalDist = smoothUnion(finalDist, hillLeftBack1, 0.25f);
+
+    float hillLeftBackRad2 = 15.0;
+    float hillLeftBack2 = hemisphere(queryPos - vec3(-26.95, groundY - 10.0, 15.0), hillLeftBackRad2);
+    if (hillLeftBack2 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    finalDist = smoothUnion(finalDist, hillLeftBack2, 0.25f);
+
+    float hillLeftFrontRad = 10.0;
+    float hillLeftFront = hemisphere(queryPos - vec3(-5.9 - 3.0, groundY - 8.45, -5.0), hillLeftFrontRad);
+    if (hillLeftFront < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    finalDist = smoothUnion(finalDist, hillLeftFront, 0.25f);
+
+    float hillRightRad1 = 15.0;
+    float hillRight1 = hemisphere(queryPos - vec3(13.0, groundY - 11.0, 19.0 + 4.5), hillRightRad1);
+    if (hillRight1 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    // finalDist = smoothUnion(finalDist, hillRight1, 0.25f);
+    
+    float hillRightBudRad1 = 12.5;
+    float hillRightBud1 = hemisphere(queryPos - vec3(13.5, groundY - 9.2, 13.5 + 4.), hillRightBudRad1);
+    if (hillRightBud1 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    finalDist = smoothUnion(finalDist, smin(hillRight1, hillRightBud1, 0.25), 0.25f);
+    
+    float hillRightRad2 = 12.3;
+    float hillRight2 = hemisphere(queryPos - vec3(14.0, groundY - 9.5, 8.5), hillRightRad2);
+    if (hillRight2 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    // finalDist = smoothUnion(finalDist, hillRight2, 0.25f);
+
+    float hillRightRadBud2 = 5.0;
+    float hillRightBud2 = hemisphere(queryPos - vec3(10.15, groundY - 2.41, 2.5), hillRightRadBud2);
+    if (hillRightBud2 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    finalDist = smoothUnion(finalDist, min(hillRight2, hillRightBud2), 0.25f);
+
+    float hillRightBackRad1 = 10.0;
+    float hillRightBack1 = hemisphere(queryPos - vec3(26.45, groundY - 5.0, 21.0), hillRightBackRad1);
+    if (hillRightBack1 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    finalDist = smoothUnion(finalDist, hillRightBack1, 0.25f);
+
+    float hillRightBackRad2 = 9.0;
+    float hillRightBack2 = hemisphere(queryPos - vec3(25.55, groundY - 3.25, 15.0), hillRightBackRad2);
+    if (hillRightBack2 < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    finalDist = smoothUnion(finalDist, hillRightBack2, 0.25f);
+    
+    float hillRightFrontRad = 8.0;
+    float hillRightFront = hemisphere(queryPos - vec3(7.9, groundY - 6.45, -6.0), hillRightFrontRad);
+    if (hillRightFront < finalDist) {
+        finalMat = MAT_HILL;
+    }
+    finalDist = smoothUnion(finalDist, hillRightFront, 0.25f);
+
+    obj.distance_t = finalDist;
+    obj.material_id = finalMat;
+    return obj;
+}
+
 Ray getRay(vec2 uv)
 {
     Ray r;
@@ -458,6 +644,8 @@ Intersection getRaymarchedIntersection(vec2 uv)
         }
         distance_t += obj.distance_t;
     }
+    intersection.distance_t = -1.0;
+    intersection.material_id = MAT_SKY;
     return intersection;
 }
 
@@ -465,7 +653,7 @@ float softShadow(vec3 rDir, vec3 rOrigin, float mint, float maxt, float k)
 {
     float res = 1.0;
     for (float t = mint; t < maxt;) {
-        hitObj h = sceneSDF(rOrigin + rDir * t);
+        hitObj h = shadowSceneSDF(rOrigin + rDir * t);
         if (h.distance_t < 0.001) {
             return 0.0;
         }
@@ -518,43 +706,56 @@ vec3 palette( in float t, in vec3 a, in vec3 b, in vec3 c, in vec3 d )
     return a + b*cos( 6.28318*(c*t+d) );
 }
 
-vec3 getSceneColor(vec2 uv)
-{
-    Intersection intersection = getRaymarchedIntersection(uv);
-    Ray r = getRay(uv);
-    // vec3 isect = u_Eye + intersection.distance_t * r.direction;
-    // vec3 nor = estimateNorm(intersection.position);
-    // vec3 view = normalize(u_Eye - intersection.position);
-    
-    DirectionalLight lights[3];
-
-    vec3 lightDir0 = vec3(15.0, 15.0, 15.0);
-    vec3 lightDir1 = vec3(0.0, 1.0, 0.0);
-    vec3 lightDir2 = vec3(15.0, 0.0, 10.0);
-    lights[0] = DirectionalLight(normalize(lightDir0), SUN_KEY_LIGHT);
-    lights[1] = DirectionalLight(normalize(lightDir1), SUN_KEY_LIGHT);
-    lights[2] = DirectionalLight(normalize(lightDir2), SUN_KEY_LIGHT);
-
-    vec3 backCol = SUN_KEY_LIGHT;
-    vec3 albedo = vec3(0.5);
-    // vec3 n = estimateNorm(intersection.position);
-
-    // vec3 color = albedo * lights[0].col * max(0.0, dot(intersection.normal, lights[0].dir)) * shadow(lights[0].dir, intersection.position, 0.1);
-    vec3 color = albedo * lights[0].col * max(0.0, dot(intersection.normal, lights[0].dir));
-    if (intersection.distance_t > 0.0) { 
-        for(int i = 1; i < 3; ++i) {
-            color += albedo * lights[i].col * max(0.0, dot(intersection.normal, lights[i].dir));
+vec3 computeMat(int mat_id, vec3 p, vec3 n) {
+    float noise;
+    vec3 out_col;
+    switch(mat_id) {
+        case MAT_HILL:
+        // return rgb(76.0, 81.0, 200.0);
+        return rgb(96.0, 96.0, 203.0);
+        break;
+        case MAT_GROUND:
+        vec3 ground_col = rgb(45.0, 77.0, 162.0);
+        vec3 light_ground = rgb(93.0, 176.0, 226.0);
+        // noise = (fbm(5.0, p.xz) + 1.338) / 2.638;
+        // noise = smoothstep(0.89, 0.99, noise);
+        // ground_col = mix(ground_col, light_ground, noise);
+        noise = rand3(p);
+        if (noise < 0.999) {
+            noise = 0.0;
         }
-    } else {
-        color = vec3(0.5, 0.7, 0.9);
+        out_col = mix(ground_col, rgb(255.0, 255.0, 255.0), noise);
+        return out_col;
+        break;
+        case MAT_JOE:
+        return rgb(100.0, 200.0, 255.0);
+        break;
+        case MAT_SKY:
+        return rgb(255.0, 255.0, 255.0);
+        break;
+        default:
+        return rgb(255.0, 0.0, 0.0);
+        break;
     }
-    color = pow(color, vec3(1. / 2.2));
-    return color;
+}
+
+vec3 getSkyColor(vec2 uv) {
+    float noise = (fbm(10.0, uv) + 1.338) / 2.638;
+    vec3 blue = rgb(138.0, 140.0, 223.0);
+    vec3 pink = rgb(246.0, 187.0, 244.0);
+    float y_mix = smoothstep(0.3, 0.6, uv.y);
+    vec3 col = mix(blue, pink, noise + 0.25);
+    vec3 out_col = mix(col, blue, y_mix);
+    // vec3 out_col = mix(col, blue, uv.y);
+    return out_col;
 }
 
 vec3 getSceneColor2(vec2 uv)
 {
     Intersection intersection = getRaymarchedIntersection(uv);
+    if (intersection.material_id == MAT_SKY) {
+        return getSkyColor(uv);
+    }
     Ray r = getRay(uv);
     // vec3 isect = u_Eye + intersection.distance_t * r.direction;
     // vec3 nor = estimateNorm(intersection.position);
@@ -564,15 +765,20 @@ vec3 getSceneColor2(vec2 uv)
     vec3 nor = intersection.normal;
     vec3 mat = computeMat(intersection.material_id, isect, nor);
     
-    vec3 warmDir = normalize(vec3(1.0, 1.0, 1.0));
+    vec3 warmDir = normalize(vec3(-1.0, 0.71, 0.0));
     vec3 coolDir = normalize(vec3(-1.0, 0.0, -1.0));
 
     float warmDot = max(0.0, dot(nor, warmDir));
     float coolDot = max(0.0, dot(nor, coolDir));
 
-    vec3 color = warmDot * SUN_KEY_LIGHT * shadow(warmDir, isect, 0.1);
-    color += coolDot * vec3(0.05, 0.2, 0.5);
+    // vec3 warmLight = rgb(204.0, 150.0, 255.0);
+    vec3 warmLight = rgb(255.0, 255.0, 255.0);
+    vec3 coolLight = vec3(0.05, 0.2, 0.5);
+
+    vec3 color = warmDot * warmLight * shadow(warmDir, isect, 0.1);
+    color += coolDot * coolLight;
     color *= mat;
+    color += SUN_AMBIENT_LIGHT;
     color = clamp(color + vec3(0.05, 0.1, 0.15), 0.0, 1.0);
     
     return color;

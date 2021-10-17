@@ -22,7 +22,8 @@ const vec3 WORLD_FORWARD = vec3(0.0, 0.0, 1.0);
 
 #define SHAKING vec3(sin(u_Time * .2 * STAR_ANIM_SPEED) * .1, cos(u_Time * .4 * STAR_ANIM_SPEED) * .1, sin(((u_Time + 100.0) * STAR_ANIM_SPEED) * .3))
 
-#define BACKLIGHT_POS vec3(1.5, 2.0, -.75) - SHAKING
+#define BACKLIGHT_POS normalize(vec3(1.2, 1.0, -.75)) * 5.0  - SHAKING
+#define EYELIGHT_POS vec3(0.1, .3, 1.0) - SHAKING
 
 #define STARLIGHT_BACKLIGHT_POS vec3(0.0, 0.0, -1.0)
 #define STARLIGHT_GLOW_POS vec3(-0.1,-1., 0.05) - SHAKING
@@ -34,6 +35,8 @@ const vec3 WORLD_FORWARD = vec3(0.0, 0.0, 1.0);
 #define ARM_MAT 5
 #define STAR_CENTER_MAT 6
 #define MOUTH_MAT 7
+#define CHEEK_MAT 8
+#define EYELIGHT_MAT 9
 
 struct Ray 
 {
@@ -79,6 +82,13 @@ float sdRoundCone( vec3 p, float r1, float r2, float h )
   if( k > a*h ) return length(q-vec2(0.0,h)) - r2;
         
   return dot(q, vec2(a,b) ) - r1;
+}
+
+float sdCapsule( vec3 p, vec3 a, vec3 b, float r )
+{
+  vec3 pa = p - a, ba = b - a;
+  float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+  return length( pa - ba*h ) - r;
 }
 
 float sdVertCapsule( vec3 p, float h, float r )
@@ -216,6 +226,15 @@ SDF kirbyStarSDF(vec3 queryPos) {
     
     vec3 leftEyePos = rotateY(bodyPos - normalize(vec3(-.19, -0.3 + bodyDeform, 1.0)) * .6, 1.5);
     vec3 rightEyePos = rotateY(bodyPos - normalize(vec3(.19, -0.3 + bodyDeform, 1.0)) * .6, 1.5);
+
+    vec3 leftEyeLightPos = bodyPos - normalize(vec3(-.19, -0.2 + bodyDeform, 1.0)) * .6;
+    vec3 rightEyeLightPos = bodyPos - normalize(vec3(.19, -0.2 + bodyDeform, 1.0)) * .6;
+
+    vec3 leftCheekBasePos = vec3(-.4, -.3 + bodyDeform, 1.0);
+    vec3 rightCheekBasePos = vec3(.4, -.3 + bodyDeform, 1.0);
+
+    vec3 leftCheekPos = rotateY(bodyPos - normalize(leftCheekBasePos) * .65, .25);
+    vec3 rightCheekPos = rotateY(bodyPos - normalize(rightCheekBasePos) * .65, -.25);
     
     vec3 armDownPos = rotateX(rotateY(bodyPos - normalize(vec3(-1.5, -.75 + armBobDown, 1.2)) * .65, .3), -.3);
     vec3 armUpPos = rotateX(rotateY(bodyPos - normalize(vec3(1.5, 1.0 + armBobUp, -1.0)) * .65, .6), -.3);
@@ -238,8 +257,16 @@ SDF kirbyStarSDF(vec3 queryPos) {
     float kirbyLeftFoot = sdRoundCone(leftFootPos, .22, .15, .2);
     float kirbyRightFoot = sdRoundCone(rightFootPos, .22, .15, .2);
     float kirbyMouth = sdSphere(mouthPos, .1);
-    
-    //SDF star = starSDF(feetBasePos - starOffset);
+    float kirbyLeftCheek = sdCapsule(leftCheekPos, -vec3(.05, 0.0, 0.0), vec3(0.0), .05);
+    float kirbyRightCheek = sdCapsule(rightCheekPos, vec3(.05, 0.0, 0.0), vec3(0.0), .05);
+
+    float leftEyeLight = sdSphere(leftEyeLightPos, .125);
+    float rightEyeLight = sdSphere(rightEyeLightPos, .125);
+
+    leftEyeLight = max(leftEyeLight, kirbyLeftEye);
+    rightEyeLight = max(rightEyeLight, kirbyRightEye);
+     
+    SDF star = starSDF(feetBasePos - starOffset);
 
     float kirby = smin(kirbyBody, kirbyDownArm, .01);
     kirby = smin(kirby, kirbyLeftFoot, .01);
@@ -248,22 +275,28 @@ SDF kirbyStarSDF(vec3 queryPos) {
     kirby = opUnion(kirby, kirbyRightEye);
     kirby = smin(kirby, kirbyUpArm, .01);
     kirby = opSmoothSub(kirbyMouth, kirby, .01);
-    //kirby = opUnion(kirby, star.t);
+    kirby = opUnion(kirby, star.t);
 
-    // if (star.t <= EPSILON) {
-    //     return star;
-    // }
+    if (star.t <= EPSILON) {
+        return star;
+    }
     if (kirbyLeftFoot <= EPSILON || kirbyRightFoot <= EPSILON) {
         return SDF(kirby, FEET_MAT);
     }
-    if (kirbyLeftEye <= EPSILON || kirbyRightEye <= EPSILON) {
+    if (leftEyeLight <= EPSILON || rightEyeLight <= EPSILON) {
         return SDF(kirby, EYE_MAT);
+    }
+    if (kirbyLeftEye <= EPSILON || kirbyRightEye <= EPSILON) {
+        return SDF(kirby, EYELIGHT_MAT);
     }
     if (kirbyDownArm <= EPSILON || kirbyUpArm <= EPSILON) {
         return SDF(kirby, ARM_MAT);
     }
     if (kirbyMouth <= EPSILON) {
         return SDF(kirby, MOUTH_MAT);
+    }
+    if (kirbyLeftCheek <= EPSILON || kirbyRightCheek <= EPSILON) {
+        return SDF(kirby, CHEEK_MAT);
     }
     return SDF(kirby, BODY_MAT);
 }
@@ -337,22 +370,11 @@ float softShadow( in vec3 ro, in vec3 rd, float maxt, float k )
     {
         float h = sceneSDF(ro + rd*t).t;
         if( h< .001 )
-            return 0.3;
+            return 0.0;
         res = min( res, k*h/t );
         t += h;
     }
-    return res;
-}
-
-float hardShadow(vec3 rayOrigin, vec3 rayDirection, float maxT) {
-    for (float t = 0.015; t <= maxT; ++t) {
-        float h = sceneSDF(rayOrigin + rayDirection * t).t;
-        if (h < EPSILON) {
-            return 0.3;
-        }
-        t += h;
-    }
-    return 1.0;
+    return res * res;
 }
 
 vec3 rgb(vec3 rgb) {
@@ -413,6 +435,10 @@ float fbm(float nOctaves, vec2 pos) {
     return total;
 }
 
+float rand(vec2 co){
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
 // Adjust these to alter where the subsurface glow shines through and how brightly
 const float FIVETAP_K = 1.0;
 const float AO_DIST = 0.01;
@@ -447,10 +473,10 @@ float lambertian(vec3 lightDir, vec3 normal) {
     return max(dot(lightDir, normal), 0.0);
 }
 
-#define EYE_SHINY 16.0
+#define EYE_SHINY 5.0
 const vec3 eyeLightColor = vec3(1.0, 1.0, 1.0);
-const float eyeLightPower = 20.0;
-const vec3 eyeSpecColor = vec3(1.0, 1.0, 1.0);
+const float eyeLightPower = 10.0;
+#define eyeSpecColor rgb(vec3(255.0, 246.0, 156.0))
 
 vec3 eyeReflection(vec3 normal, vec3 lightDir, vec3 pos, vec3 color) {
     float distance = length(lightDir);
@@ -468,8 +494,8 @@ vec3 eyeReflection(vec3 normal, vec3 lightDir, vec3 pos, vec3 color) {
         specular = pow(specAngle, EYE_SHINY);
     }
     vec3 diffuseColor = color;
-    vec3 colorLinear = diffuseColor * lambert * eyeLightColor * eyeLightPower / distance +
-             eyeSpecColor * specular * eyeLightColor * eyeLightPower / distance;
+    vec3 colorLinear = diffuseColor * eyeLightColor / distance * distance +
+             eyeSpecColor * specular * eyeLightColor * eyeLightPower * eyeLightPower / distance;
     return colorLinear;
 }
 
@@ -495,6 +521,7 @@ float starReflection(vec3 normal, vec3 lightDir, vec3 pos) {
 vec3 getMatColor(int matID, Intersection isect)
 {
     float shading;
+    vec3 yellowLight = rgb(vec3(255.0, 253.0, 171.0));
     vec3 starColor = rgb(vec3(255.0, 240.0, 94.0));
     vec3 starGlowColor = rgb(vec3(255.0, 246.0, 156.0));
     vec3 starLightGlowPos = STARLIGHT_GLOW_POS - isect.position;
@@ -517,25 +544,33 @@ vec3 getMatColor(int matID, Intersection isect)
             return mix(starBaseColor, vec3(1.0), starLerp);
         
         case BODY_MAT:
-            shading = softShadow(isect.position, normalize(BACKLIGHT_POS - isect.position), 4., 4.0);
-            float starGlow = lambertian(STARLIGHT_GLOW_POS - isect.position, isect.normal);
-            return mix(rgb(vec3(255.0, 168.0, 225.0)) * shading, starGlowColor, bodyStarGlow);
+            shading = softShadow(isect.position, normalize(BACKLIGHT_POS - isect.position), .1, 1.75) + .5;
+            return mix(rgb(vec3(255.0, 168.0, 225.0)) * shading * yellowLight, starGlowColor, bodyStarGlow);
         
         case FEET_MAT:
-            shading = softShadow(isect.position, normalize(BACKLIGHT_POS - isect.position), 4., 4.0);
-            return mix(rgb(vec3(255.0, 94.0, 199.0)) * shading, starGlowColor, bodyStarGlow);
+            shading = softShadow(isect.position, normalize(BACKLIGHT_POS - isect.position), .1, 1.75) + .5;
+            return mix(rgb(vec3(255.0, 94.0, 199.0)) * shading * yellowLight, starGlowColor, bodyStarGlow);
         
         case ARM_MAT:
-            shading = softShadow(isect.position, normalize(BACKLIGHT_POS - isect.position), 4., 4.0);
-            return mix(rgb(vec3(255.0, 168.0, 225.0)) * shading, starGlowColor, armStarGlow);
+            shading = softShadow(isect.position, normalize(BACKLIGHT_POS - isect.position), .1, 1.75) + .5;
+            return mix(rgb(vec3(255.0, 168.0, 225.0)) * shading * yellowLight, starGlowColor, armStarGlow);
         
         case EYE_MAT:
             vec3 eyeColor = rgb(vec3(0.0, 8.0, 46.0));
-            //return eyeReflection(isect.normal, LIGHT_POS - isect.position, isect.position, eyeColor);
-            return eyeColor;
+            return eyeReflection(isect.normal, EYELIGHT_POS - isect.position, isect.position + SHAKING, eyeColor);
         
+        case EYELIGHT_MAT:
+            shading = softShadow(isect.position, normalize(BACKLIGHT_POS - isect.position), .1, 1.75) + .5;
+            vec3 eyeshine = vec3(1.0) * shading;
+            return eyeReflection(isect.normal, EYELIGHT_POS - isect.position, isect.position + SHAKING, eyeshine);
+
         case MOUTH_MAT:
             return vec3(0.0);
+        
+        case CHEEK_MAT:
+            shading = softShadow(isect.position, normalize(BACKLIGHT_POS - isect.position), .1, 1.75) + .5;
+            return mix(rgb(vec3(255.0, 94.0, 171.0)) * shading * yellowLight, starGlowColor, bodyStarGlow);
+
     }
     return vec3(0.0);
 }
@@ -548,21 +583,35 @@ vec3 getSceneColor(vec2 uv)
         int matID = intersection.material_id;
         return getMatColor(matID, intersection);
     }
-    vec3 skyColor = rgb(vec3(56.0, 46.0, 33.0));
+    vec3 skyColor = rgb(vec3(69.0, 53.0, 48.0));
     float cloudBound = (fbm(7.0, vec2((uv.x - u_Time * .15) * .3, (uv.y + sin(u_Time * .02)) * .5)) + 1.338) / 2.638;
     float baseNoise = (fbm(7.0, vec2(uv.x - u_Time * .15, uv.y + sin(u_Time * .02))) + 1.338) / 2.638; // fbm mapped from 0 to 1
     vec3 cloudColor = vec3(1.0);
+
     vec3 bgCol = mix(skyColor, skyColor + cloudColor * baseNoise, smoothstep(.4, .5, cloudBound));
 
     float streakBound = sin(-(uv.y + cos(u_Time * .01 + uv.x) * .1) * 5.0 + cos(-uv.y * .5 * 5.0)) + cos(u_Time * .4) * .04;
-    if (streakBound > -.8 && streakBound < 0.3) {
+    if (streakBound > -1. && streakBound < 0.5) {
         float distAcross = -cos(uv.y + u_Time * .05) * 2.0 * uv.y + uv.x + 2.5 + sin((u_Time + uv.y) * .025) * .5 + cos(u_Time * .12) * .05;
         if (distAcross > 1.0) {
-            vec3 starColor = rgb(vec3(255.0, 240.0, 94.0));
+            vec3 starColor = rgb(vec3(255.0, 246.0, 156.0));
             vec3 lightColor = mix(vec3(1.0), starColor, pow(((streakBound + .25) * 4.0), 2.0));
-            vec3 mixEdge1 = mix(bgCol, bgCol + lightColor, gain(smoothstep(-.8, -.5, streakBound), .7));
-            vec3 mixEdge2 = mix(mixEdge1, bgCol, gain(smoothstep(0.0, .3, streakBound), .7));
-            return mixEdge2;
+            vec3 mixEdge1 = mix(bgCol, bgCol + lightColor, gain(smoothstep(-1., -.5, streakBound), .7));
+            vec3 mixEdge2 = mix(mixEdge1, bgCol, gain(smoothstep(0.0, .5, streakBound), .7));
+            bgCol = mixEdge2;
+        }
+    }
+
+    vec2 noisedUV = vec2((uv.x  + u_Time)* 30.0, (uv.y + SHAKING.y) * 30.0 );
+    float yBoundHigh = -.5 + SHAKING.y + uv.x * .5;
+    float yBoundLow = -.7 + SHAKING.y - uv.x * .15;
+    if (uv.y < yBoundHigh && uv.y > yBoundLow && uv.x > SHAKING.x) {
+        float sparkleNoise = fbm(7.0, noisedUV);
+        if (sparkleNoise > -.2) {
+            vec3 sparkleBaseCol = rgb(vec3(255.0, 247.0, 184.0));
+            vec3 trailCol = mix(bgCol, vec3(1.0) + sparkleBaseCol, gain(smoothstep(-.1, .9, sparkleNoise * sparkleNoise), .7));
+            vec3 up = mix(bgCol, trailCol, smoothstep(yBoundLow, yBoundLow + .1, uv.y));
+            bgCol = mix(up, bgCol, smoothstep(yBoundHigh - .1, yBoundHigh, uv.y));
         }
     }
     return bgCol;

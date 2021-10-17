@@ -454,7 +454,6 @@ hitObj sceneSDF(vec3 queryPos)
 
 hitObj shadowSceneSDF(vec3 queryPos)
 {
-
     hitObj obj = hitObj(-1.f, MAT_SKY);
 
     float boundingBoxHorizontal = sdBox(queryPos, vec3(30.0, 30.0, 30.0));
@@ -615,9 +614,22 @@ Ray getRay2(vec2 uv)
     return ray;
 }
 
+
+vec3 estimateJoeNorm(vec3 p)
+{
+    // vec2 d = vec2(0.f, EPSILON);
+    vec2 d = vec2(0.f, 0.5);
+    float x = sceneSDF(p + d.yxx).distance_t - sceneSDF(p - d.yxx).distance_t;
+    float y = sceneSDF(p + d.xyx).distance_t - sceneSDF(p - d.xyx).distance_t;
+    float z = sceneSDF(p + d.xxy).distance_t - sceneSDF(p - d.xxy).distance_t;
+    
+    return normalize(vec3(x, y, z));
+}
+
 vec3 estimateNorm(vec3 p)
 {
     vec2 d = vec2(0.f, EPSILON);
+    // vec2 d = vec2(0.f, 0.5);
     float x = sceneSDF(p + d.yxx).distance_t - sceneSDF(p - d.yxx).distance_t;
     float y = sceneSDF(p + d.xyx).distance_t - sceneSDF(p - d.xyx).distance_t;
     float z = sceneSDF(p + d.xxy).distance_t - sceneSDF(p - d.xxy).distance_t;
@@ -638,8 +650,15 @@ Intersection getRaymarchedIntersection(vec2 uv)
         if (obj.distance_t < EPSILON) {
             intersection.position = queryPoint;
             intersection.distance_t = distance_t;
-            intersection.normal = estimateNorm(queryPoint);
             intersection.material_id = obj.material_id;
+            if (obj.material_id == MAT_PORTAL) {
+                intersection.normal = estimateNorm(queryPoint);
+            } else if (uv.y < 0.75 && obj.material_id == MAT_JOE) {
+                // intersection.normal = estimateNorm(queryPoint);
+                intersection.normal = estimateJoeNorm(queryPoint);
+            } else {
+                intersection.normal = estimateNorm(queryPoint);
+            }
             return intersection;
         }
         distance_t += obj.distance_t;
@@ -721,7 +740,7 @@ vec3 computeMat(int mat_id, vec3 p, vec3 n) {
         // noise = smoothstep(0.89, 0.99, noise);
         // ground_col = mix(ground_col, light_ground, noise);
         noise = rand3(p);
-        if (noise < 0.999) {
+        if (noise < 0.9) {
             noise = 0.0;
         }
         out_col = mix(ground_col, rgb(255.0, 255.0, 255.0), noise);
@@ -766,14 +785,15 @@ vec3 getSceneColor2(vec2 uv)
     vec3 mat = computeMat(intersection.material_id, isect, nor);
     
     vec3 warmDir = normalize(vec3(-1.0, 0.71, 0.0));
-    vec3 coolDir = normalize(vec3(-1.0, 0.0, -1.0));
+    vec3 coolDir = normalize(vec3(0, 0.5, 5.0));
 
     float warmDot = max(0.0, dot(nor, warmDir));
     float coolDot = max(0.0, dot(nor, coolDir));
 
     // vec3 warmLight = rgb(204.0, 150.0, 255.0);
     vec3 warmLight = rgb(255.0, 255.0, 255.0);
-    vec3 coolLight = vec3(0.05, 0.2, 0.5);
+    // vec3 coolLight = vec3(0.05, 0.2, 0.5);
+    vec3 coolLight = rgb(0.05, 0.2, 0.5) * 20.0;
 
     vec3 color = warmDot * warmLight * shadow(warmDir, isect, 0.1);
     color += coolDot * coolLight;

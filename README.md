@@ -5,6 +5,7 @@ David Li: 13109274
 https://iquilezles.org/www/articles/rmshadows/rmshadows.htm
 http://print-graph-paper.com/virtual-graph-paper
 
+https://thecollegeboardofc.github.io/hw03-advanced-raymarching/
 I followed IQ's code to generate penumbra shadows. For each intersection point on the surface. I checked against all lights from a list to see what shadows would be generated. I modeled the plane using mostly capsules, capped cones, and quad sdfs. I also used to smooth csgs to union and cut the shape of the engines. Here is the reference I used. It is Boeing 747
 - [plane](plane.jpg)
 ## Objective

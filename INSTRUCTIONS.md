@@ -1,3 +1,16 @@
+#Di Lu
+
+#dlu36
+
+Video to a demo of the scene. As of right now, the github link doesn't seem to work. This projects runs in 20-30 FPS while I'm not recording through OBS studios: https://vimeo.com/631615248 
+
+Video to the inspiration for the scene: 
+https://www.youtube.com/watch?v=5HvrySwhZrQ&ab_channel=umami  
+
+In addition to IQ's site: 
+- https://www.shadertoy.com/view/MlcBDj 
+- https://weber.itn.liu.se/~stegu/webglshadertutorial/shadertutorial.html 
+
 # CIS 566 Homework 3: Advanced Raymarched Scenes
 
 ## Objective

@@ -117,7 +117,6 @@ float getAnimation() {
 }
 
 vec3 getSoupFaceColor(vec3 pos) {
-  //return clamp(fbmNoise(pos), 0.1, 0.3) * SOUPTEXTURECOLOR + SOUPCOLOR;
   vec3 noiseInput = pos + getAnimation();
   float noiseFac = clamp(fbmNoise(noiseInput), 0.0, 1.0);
   return mix(SOUPCOLOR, SOUPTEXTURECOLOR, noiseFac);
@@ -600,7 +599,6 @@ vec3 getSceneColor(vec2 uv) {
 
       // CALCULATE ALL COLOR
       int shadowHitObject;
-      //float shadowFactor = shadow(intersection.position, shadowHitObject, normalize(LIGHT_DIR), 0.1, 7.0);
       float shadowFactor = softShadow(intersection.position, shadowHitObject, normalize(LIGHT_DIR), 0.1, 7.0, 0.5);
       vec3 materialColor = AMBIENTCOLOR;
       if (intersection.objectHit == SOUPFACE) {
@@ -615,7 +613,7 @@ vec3 getSceneColor(vec2 uv) {
       } else if (intersection.objectHit == SOUPEYES) {
 
         // POLKA DOT PATTERN 
-        // courtesy of https://weber.itn.liu.se/~stegu/webglshadertutorial/shadertutorial.html 
+        // courtesy of iq
         float frequency = 0.5;
         vec2 nearest = 2.0 * fract(frequency * (vec2(intersection.position.x, intersection.position.z) - IRISOFFSET)) - 1.0;
         float dist = length(nearest);

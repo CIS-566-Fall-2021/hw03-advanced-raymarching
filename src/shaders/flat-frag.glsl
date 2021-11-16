@@ -198,7 +198,7 @@ vec2 sceneSDF(vec3 queryPos)
         closestPointDistance = unionSDF(cube, closestPointDistance);
         
         // Add head
-        matID = 4.0;
+        matID = 3.0;
         vec2 head = vec2(sdfSphere(queryPos, vec3(0.0, 1.3, 0.3), 0.6), matID);
         closestPointDistance = unionSDF(head, closestPointDistance);
 

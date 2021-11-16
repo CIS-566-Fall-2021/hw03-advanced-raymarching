@@ -198,7 +198,7 @@ vec2 sceneSDF(vec3 queryPos)
         closestPointDistance = unionSDF(cube, closestPointDistance);
         
         // Add head
-        matID = 1.0;
+        matID = 4.0;
         vec2 head = vec2(sdfSphere(queryPos, vec3(0.0, 1.3, 0.3), 0.6), matID);
         closestPointDistance = unionSDF(head, closestPointDistance);
 
@@ -481,6 +481,12 @@ vec3 getSceneColor(vec2 uv)
         if(intersection.material_id == 3)
         {
             diffuseColor = vec3(0.9, 0.9, 0.9);
+            blinnPhong = true;
+        }
+
+        if(intersection.material_id == 4)
+        {
+            diffuseColor = vec3(1.0, 0.0, 0.0);
             blinnPhong = true;
         }
 

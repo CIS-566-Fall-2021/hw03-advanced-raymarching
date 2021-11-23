@@ -193,7 +193,7 @@ vec2 sceneSDF(vec3 queryPos)
     {
         // Add body
         vec3 bodyPos = rotateXYZ(queryPos, PI / 10.0,  PI / 4.0, 0.0);
-        matID = 1.0;
+        matID = 4.0;
         vec2 cube = vec2(sdfBox(bodyPos, vec3(0.5, 0.5, 0.5)), matID);
         closestPointDistance = unionSDF(cube, closestPointDistance);
         

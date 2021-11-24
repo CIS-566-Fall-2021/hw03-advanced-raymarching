@@ -18,6 +18,8 @@ const float PI = 3.14159265359;
 
 const float AMBIENT = 0.05;
 
+const float FLOOR_HEIGHT = -2.1;
+
 const vec3 LIGHT1_DIR = vec3(-1.0, 1.0, 2.0);
 float light1_OutputIntensity = 0.9;
 vec3 light1_Color = vec3(1.0, 1.0, 1.0); // Full Daylight
@@ -176,6 +178,7 @@ float sdfTorus( vec3 point, float radius, float thickness)
 }
 
 
+
 // Describe the scene using sdf functions
 vec2 sceneSDF(vec3 queryPos) 
 {
@@ -185,7 +188,7 @@ vec2 sceneSDF(vec3 queryPos)
 
     // Add floor
     matID = 0.0;
-    vec2 floor = vec2(heightField(queryPos, -2.1), matID);
+    vec2 floor = vec2(heightField(queryPos, FLOOR_HEIGHT), matID);
     closestPointDistance = unionSDF(floor, closestPointDistance);
 
     // Bounding sphere to improve performance
@@ -301,6 +304,19 @@ vec2 sceneSDF(vec3 queryPos)
         vec2 leftLegAndWheel = vec2(smin(leftLowerLeg.x, leftWheel, 0.1), matID);
 
         closestPointDistance = unionSDF(leftLegAndWheel, closestPointDistance);
+
+        // Left tire
+        matID = 2.0;
+        vec3 leftTirePos = rotateAboutY(queryPos - vec3(0.9, -0.7, -0.9), -PI / 4.0);
+        vec2 leftTire = vec2(sdfTorus(leftWheelPos, 0.18, 0.07), matID);
+        closestPointDistance = unionSDF(leftTire, closestPointDistance);
+
+
+        // Right tire
+        matID = 2.0;
+        vec3 rightTirePos = rotateAboutY(queryPos - vec3(-0.4, -1.8, -0.5), -PI / 4.0);
+        vec2 rightTire = vec2(sdfTorus(rightWheelPos, 0.18, 0.07), matID);
+        closestPointDistance = unionSDF(rightTire, closestPointDistance);
 
         // Add antenna ball
         vec3 antennaPos = vec3(0.0, 1.0, 0.0);
@@ -436,14 +452,14 @@ float occlusionShadowFactor(vec3 point, vec3 normal, float k,
 }
 
 
-Intersection getRaymarchedIntersection(vec2 uv)
+Intersection rayMarch(Ray r)
 {
+
     Intersection intersection;    
     intersection.distance_t = -1.0;
     
     float distancet = 0.0f;
-    
-    Ray r = getRay(uv);
+
     for(int step; step < MAX_RAY_STEPS && distancet < maxRayDistance; ++step)
     {
         
@@ -468,9 +484,18 @@ Intersection getRaymarchedIntersection(vec2 uv)
         distancet += currentDistance;
         
     }
-    
+
     return intersection;
 }
+
+
+Intersection getRaymarchedIntersection(vec2 uv)
+{   
+    Ray r = getRay(uv);
+    
+    return rayMarch(r);
+}
+
 
 vec3 getSceneColor(vec2 uv)
 {
@@ -489,29 +514,13 @@ vec3 getSceneColor(vec2 uv)
         // diffuseColor = Albedo: below is the default value;
         vec3 diffuseColor = vec3(1.0, 0.8745, 0.5333);
 
-        if(intersection.material_id == 1)
+
+        // Turn on blinnPhong for shiny objects
+        if(intersection.material_id == 0 || intersection.material_id == 1 ||
+            intersection.material_id == 3 || intersection.material_id == 4)
         {
-            diffuseColor = vec3(0.8, 0.8, 0.8);
             blinnPhong = true;
         }
-
-        if(intersection.material_id == 2)
-        {
-            diffuseColor = vec3(0.1647, 0.1529, 0.1373);
-        }
-
-        if(intersection.material_id == 3)
-        {
-            diffuseColor = vec3(0.9, 0.9, 0.9);
-            blinnPhong = true;
-        }
-
-        if(intersection.material_id == 4)
-        {
-            diffuseColor = vec3(1.0, 0.0, 0.0);
-            blinnPhong = true;
-        }
-
 
         // First Light
 
@@ -590,6 +599,48 @@ vec3 getSceneColor(vec2 uv)
         light2_Color *= light2Intensity;
 
         light3_Color *= light3Intensity;
+
+
+
+        // Floor; reflective material
+        if(intersection.material_id == 0)
+        {
+            diffuseColor = vec3(0.9, 0.8, 0.75);
+
+            Ray r;
+            r.direction = getRay(fs_Pos).direction;
+            r.direction.y *= -1.0;
+            r.origin = intersection.position + r.direction * EPSILON * 1000.0;
+
+            Intersection newIntersection = rayMarch(r);
+
+            if (newIntersection.distance_t > 0.0)
+            { 
+                intersection = newIntersection;
+            }
+        }
+
+
+        if(intersection.material_id == 1)
+        {
+            diffuseColor = vec3(0.8, 0.8, 0.8);
+        }
+
+        if(intersection.material_id == 2)
+        {
+            diffuseColor = vec3(0.1647, 0.1529, 0.1373);
+        }
+
+        if(intersection.material_id == 3)
+        {
+            diffuseColor = vec3(0.9, 0.9, 0.9);
+        }
+
+        if(intersection.material_id == 4)
+        {
+            diffuseColor = vec3(1.0, 0.0, 0.0);
+        }
+
 
         // Combine different lights
         vec3 finalColor = diffuseColor * (light1_Color + light2_Color + light3_Color);

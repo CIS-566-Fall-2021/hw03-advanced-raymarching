@@ -12,7 +12,7 @@ Reference Image:
 
 ## Live Demo
 View a live WebGL Demo here!:
-https://ndevlin.github.io/hw03-advanced-raymarching/
+https://ndevlin.github.io/RealtimeRayMarching/
 
 ## Project Description
 

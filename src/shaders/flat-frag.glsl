@@ -179,7 +179,7 @@ float sdfTorus( vec3 point, float radius, float thickness)
 // Describe the scene using sdf functions
 vec2 sceneSDF(vec3 queryPos) 
 {
-    // First val is distance from camera, second is materialID; later will be changed to int
+    // First val is distance from camera, second is materialID; later will be converted to int
     float matID = 0.0;
     vec2 closestPointDistance = vec2(1e10, matID);
 
@@ -193,7 +193,7 @@ vec2 sceneSDF(vec3 queryPos)
     {
         // Add body
         vec3 bodyPos = rotateXYZ(queryPos, PI / 10.0,  PI / 4.0, 0.0);
-        matID = 4.0;
+        matID = 1.0;
         vec2 cube = vec2(sdfBox(bodyPos, vec3(0.5, 0.5, 0.5)), matID);
         closestPointDistance = unionSDF(cube, closestPointDistance);
         
@@ -414,6 +414,28 @@ float softShadow(vec3 rayOrigin, vec3 rayDirection, float minT, float maxT, floa
 }
 
 
+// Returns float between 0 and 1 that indicates percentage of 
+// AO shadow created by nearby objects.
+// Takes in sample point, normal at that point, k multiplying factor,
+// number of samples, and sample distance
+float occlusionShadowFactor(vec3 point, vec3 normal, float k, 
+                            float numSamples, float sampleDist)
+{
+    float aoShadowing = 0.0;
+
+    float coeff = 0.5;
+
+    for(float i = 0.0; i < numSamples; i += 1.0)
+    {
+        aoShadowing += coeff * (i * sampleDist - sceneSDF(point + normal * i * sampleDist).x);
+
+        coeff /= 2.0;
+    }
+
+    return k * aoShadowing;
+}
+
+
 Intersection getRaymarchedIntersection(vec2 uv)
 {
     Intersection intersection;    
@@ -573,11 +595,17 @@ vec3 getSceneColor(vec2 uv)
         vec3 finalColor = diffuseColor * (light1_Color + light2_Color + light3_Color);
         finalColor = finalColor * (1.0 + AMBIENT);
 
+        float aoShadowing = occlusionShadowFactor(intersection.position, intersection.normal, 
+                                                    4.0, 5.0, 0.2);
+
+        finalColor *= 1.0 - aoShadowing;
+
         return finalColor;
 
     }
     return vec3(0.0);
 }
+
 
 void main()
 {
@@ -585,6 +613,6 @@ void main()
     vec3 col = getSceneColor(fs_Pos);
 
     // Output to screen
-    out_Col = vec4(col,1.0);
+    out_Col = vec4(col, 1.0);
 }
 

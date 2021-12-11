@@ -1,8 +1,5 @@
-# CIS 566 Homework 3: Advanced Raymarched Scenes
 
-## Info
-- Lanqing Bao (lanqing)
-- Link:  https://seiseiko.github.io/hw03-advanced-raymarching/
+- Link:  https://seiseiko.github.io/gear_world/
 
 ## Screenshots
 ![](res1.gif)

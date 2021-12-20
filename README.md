@@ -1,47 +1,35 @@
-# CIS 566 Homework 3: Advanced Raymarched Scenes
+# RayMarching SDFs
 
-## Objective
-- Gain experience with signed distance functions
-- Experiment with animation curves
-- Create a presentable portfolio piece
+## Nathan Devlin - @ndevlin - ndevlin@seas.upenn.edu - www.ndevlin.com
 
-## Base Code
+Result:
 
-You will copy your implementation of hw02 into your hw03 repository.
+![](Results.png)
 
-## Assignment Requirements
-- __(35 points) Artwork Replication__ Your raymarched scene should attempt to replicate the appearance of your inspiration (include picture) with clear effort put into the replication.
-- __(25 points) Materials__ Your scene should be composed of at least three different materials. We define a material to be a surface reflection model combined with some base surface color; texturing is optional.
-- __(10 points) Lighting and Shadows__ Light your scene with at least three light sources. At least one of your light sources must cast shadows, and they should be soft shadows using the penumbra shadows algorithm we discussed in class. Consider following the "Key Light, Fill Light, GI Light" formulation from the in-class example.
-- __(20 points) Performance__ The frame rate of your scene must be at least 10FPS.
-- __(10 points)__ Following the specifications listed
-[here](https://github.com/pjcozzi/Articles/blob/master/CIS565/GitHubRepo/README.md),
-create your own README.md, renaming this file to INSTRUCTIONS.md. Don't worry
-about discussing runtime optimization for this project. Make sure your
-README contains the following information:
-  - Your name and PennKey
-  - Citation of any external resources you found helpful when implementing this
-  assignment.
-  - A link to your live github.io demo
-  - An explanation of the techniques you used to model and animate your scene.
+Reference Image:
 
-## Useful Links
-- [IQ's Article on SDFs](http://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm)
-- [IQ's Article on Smooth Blending](http://www.iquilezles.org/www/articles/smin/smin.htm)
-- [IQ's Article on Useful Functions](http://www.iquilezles.org/www/articles/functions/functions.htm)
-- [Breakdown of Rendering an SDF Scene](http://www.iquilezles.org/www/material/nvscene2008/rwwtt.pdf)
+![](Reference.jpeg)
+
+## Live Demo
+View a live WebGL Demo here!:
+https://ndevlin.github.io/RealtimeRayMarching/
+
+## Project Description
+
+This project uses Signed Distance Functions (as opposed to explicit geometry) to define a scene. Ray marching is used to determine pixel colors. The project uses WebGL and was coded with TypeScript and GLSL in Visual Studio Code.
+
+## Implementation Details
+
+This scene is created entirely in the fragment shader. Rays are shot from the camera through the pixels of the screen to test against the sdfs that comprise the scene to determine distance of the nearest object to the camera. The scene is composed of primitives that have been combined together in various ways; for example a smooth blend operation is used to nicely blend together the toruses that compose the robot's feet/wheels with the capsule primitives that compose his lower legs. 
+
+The primitives are described by SDF functions at the top of the shader. To improve efficiency, bounding spheres a limiting of the cast rays is utilized. Normals are calculated by sampling the scene in the same way, using small epsilon differences from the sampled fragment to determine the normal. These normals are then used to achieve lambertian shading by comparing the normal to the light position. 
+
+There is also some simple animation added to the scene. The face of the robot, which looks sort of like an old-school scuba mask is created with a boolean subtraction operation between one rounded cylinder and a smaller one. This is added to the sphere that composes the head with a Union operation to meld them together. This face is animated using rotation operations and a quadratic Impulse function combined with a sin function to create the effect that the robot abruptly looks at the camera, then slowly looks away again. Additionally, the antenna ball on his head is animated using cosin functions to give the feeling that it is bouncing around playfully. 
+
+Materials are added along with the SDFs in the sceneSDF function by pairing a material ID with each object, stored in a vec2. Then later in the rendering function (getSceneColor()), the shading of that material is calculated. There are currently 3 materials in the scene: two different lambert materials of different colors for the floor and for the rubber connectors at the robot's joints, and one blinn-phong metallic material for the robot's body.
+
+There additionally is a carefully crafted lighting set up using a 3-point lighting scheme. Directional lights with unique colors and intensities color the scene and cast shadows through the use of raymarched shadow light-feeling rays sent from the camera ray's intersection point towards the light source to determine if there is an occlusion. The hardness of the lights is created through an optical estimation that uses a penumbra shadow algorithm to determine how sharp or soft the shadows cast should be. 
 
 
-## Submission
-Commit and push to Github, then make a pull request on the hw03 repository with a title containing your name, and a comment containing a link to your live demo.
-
-## Inspiration
-- [Alien Corridor](https://www.shadertoy.com/view/4slyRs)
-- [The Evolution of Motion](https://www.shadertoy.com/view/XlfGzH)
-- [Fractal Land](https://www.shadertoy.com/view/XsBXWt)
-- [Voxel Edges](https://www.shadertoy.com/view/4dfGzs)
-- [Snail](https://www.shadertoy.com/view/ld3Gz2)
-- [Cubescape](https://www.shadertoy.com/view/Msl3Rr)
-- [Journey Tribute](https://www.shadertoy.com/view/ldlcRf)
-- [Stormy Landscape](https://www.shadertoy.com/view/4ts3z2)
-- [Generators](https://www.shadertoy.com/view/Xtf3Rn)
+IQ's article on SDF shapes was very useful:
+https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm

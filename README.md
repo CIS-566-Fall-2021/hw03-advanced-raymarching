@@ -1,47 +1,60 @@
-# CIS 566 Homework 3: Advanced Raymarched Scenes
 
-## Objective
-- Gain experience with signed distance functions
-- Experiment with animation curves
-- Create a presentable portfolio piece
+- Link:  https://seiseiko.github.io/gear_world/
 
-## Base Code
+## Screenshots
+![](res1.gif)
+![](res2.gif)
 
-You will copy your implementation of hw02 into your hw03 repository.
+## Implementation Details
 
-## Assignment Requirements
-- __(35 points) Artwork Replication__ Your raymarched scene should attempt to replicate the appearance of your inspiration (include picture) with clear effort put into the replication.
-- __(25 points) Materials__ Your scene should be composed of at least three different materials. We define a material to be a surface reflection model combined with some base surface color; texturing is optional.
-- __(10 points) Lighting and Shadows__ Light your scene with at least three light sources. At least one of your light sources must cast shadows, and they should be soft shadows using the penumbra shadows algorithm we discussed in class. Consider following the "Key Light, Fill Light, GI Light" formulation from the in-class example.
-- __(20 points) Performance__ The frame rate of your scene must be at least 10FPS.
-- __(10 points)__ Following the specifications listed
-[here](https://github.com/pjcozzi/Articles/blob/master/CIS565/GitHubRepo/README.md),
-create your own README.md, renaming this file to INSTRUCTIONS.md. Don't worry
-about discussing runtime optimization for this project. Make sure your
-README contains the following information:
-  - Your name and PennKey
-  - Citation of any external resources you found helpful when implementing this
-  assignment.
-  - A link to your live github.io demo
-  - An explanation of the techniques you used to model and animate your scene.
 
-## Useful Links
+### Truchet Tiling generated scene:
+![Insipiration](gears.jpg)
+I was thinking about generating the scene procedurally instead of manually put them together. I found [Truchet tiles](https://en.wikipedia.org/wiki/Truchet_tiles) interesting and implement a cubic pattern consisting of two kinds of tile as below.(Geometry outside the wireframe is not in the tile. Half gears enables the connectivity since teeth could overlap same area at boundary.)
+![two_cubic_gear_tiles](showtile.gif)
+- The gears are not symmetric along all axes so I have to manually calculate how to flip them. Thus I divide the world into 1x1x1 grids and use two checkerboard-like parameter:
+1) Checker along all axes:
+```
+vec3 id = floor(mod(p,2.))*2.-1.;
+float checker = id.x*id.y*id.z;
+```
+2) Checker along x axes: ```float second_checker = id.x;```
+Then SDF is calculated by checker*second_checker* modular result of p.
+
+### Lighting: 
+- 1)Ambient occulusion for GI(see ```ambientOcclusion()```)
+- 2)Directional Light 1 at ```(-4.*sin(0.01*u_Time),2.+sin(0.008*u_Time),3.*sin(0.01*u_Time) ```
+- 3)Directional Light 2 at ```-3.*sin(0.01*u_Time), 4.+cos(0.01*u_Time), -2.*cos(0.009*u_Time)``` *** Softshadow is casted under this light.
+![](softshadow.gif)
+
+### Material: 
+```struct Material {
+    vec3 ambient;//ambient color
+    vec3 diffuse;//diffuse color
+    vec3 specular;//specular color
+    float shininess;//shininess value
+}; 
+```
+The material of teeth and axes of gear are defined differently and their surfaces are
+calculated based on Lambert & Phong while the floor is only based on Lambert.
+```
+const Material mat_teeth = Material(vec3(0.4667, 0.8118, 0.3059),
+            vec3(1.0, 0.6902, 0.9843),
+            vec3(1.0, 1.0, 1.0),
+            15.0);
+const Material mat_axis = Material(vec3(0.9725, 0.2863, 0.2863),
+            vec3(0.4863, 0.4941, 0.8941),
+            vec3(1.0, 1.0, 1.0),
+            10.0);         
+const Material mat_floor = Material(vec3(1.0, 0.6431, 0.6431),
+            vec3(0.4863, 0.4941, 0.8941),
+            vec3(1.0, 1.0, 1.0),
+            2.0);         
+```
+- Local framerate around 60 fps(Nvidia GeForce RTX 3080Ti). Sphere bounding is used for optimization.
+## Citation and resources
+
 - [IQ's Article on SDFs](http://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm)
 - [IQ's Article on Smooth Blending](http://www.iquilezles.org/www/articles/smin/smin.htm)
-- [IQ's Article on Useful Functions](http://www.iquilezles.org/www/articles/functions/functions.htm)
 - [Breakdown of Rendering an SDF Scene](http://www.iquilezles.org/www/material/nvscene2008/rwwtt.pdf)
 
-
-## Submission
-Commit and push to Github, then make a pull request on the hw03 repository with a title containing your name, and a comment containing a link to your live demo.
-
-## Inspiration
-- [Alien Corridor](https://www.shadertoy.com/view/4slyRs)
-- [The Evolution of Motion](https://www.shadertoy.com/view/XlfGzH)
-- [Fractal Land](https://www.shadertoy.com/view/XsBXWt)
-- [Voxel Edges](https://www.shadertoy.com/view/4dfGzs)
-- [Snail](https://www.shadertoy.com/view/ld3Gz2)
-- [Cubescape](https://www.shadertoy.com/view/Msl3Rr)
-- [Journey Tribute](https://www.shadertoy.com/view/ldlcRf)
-- [Stormy Landscape](https://www.shadertoy.com/view/4ts3z2)
-- [Generators](https://www.shadertoy.com/view/Xtf3Rn)

@@ -7,16 +7,16 @@
 
 Decided to make Kirby riding a star. Inspiration taken from a scene in the [Smash Ultimate trailer](https://youtu.be/WShCN-AYHqA)
 
-Screenshot of scene (no good static images unfortunately, so have a blurry screenshot):
-![](images/start_side_shot.png)
+## GIF to see the animation
 
-## Static image!
+![](images/kirbyfinal.gif)
+
+## Static image
 
 ![](images/kirbyfinal.png)
 
-gif to see the animation
-
-![](images/kirbyfinal.gif)
+Screenshot of scene (no good static images unfortunately, so have a blurry screenshot):
+![](images/start_side_shot.png)
 
 ## Materials/techniques used
 Kirby
